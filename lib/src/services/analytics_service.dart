@@ -1,0 +1,260 @@
+import 'dart:math';
+
+import '../core/models.dart';
+
+class DailyUsage {
+  const DailyUsage({
+    required this.day,
+    required this.quantity,
+    required this.logs,
+    required this.averageMood,
+    required this.averageCraving,
+  });
+
+  final DateTime day;
+  final double quantity;
+  final int logs;
+  final double averageMood;
+  final double averageCraving;
+}
+
+class HourBucket {
+  const HourBucket({
+    required this.hour,
+    required this.quantity,
+    required this.logs,
+  });
+
+  final int hour;
+  final double quantity;
+  final int logs;
+}
+
+class TriggerMetric {
+  const TriggerMetric({
+    required this.name,
+    required this.quantity,
+    required this.logs,
+  });
+
+  final String name;
+  final double quantity;
+  final int logs;
+}
+
+class HeatmapCell {
+  const HeatmapCell({
+    required this.day,
+    required this.intensity,
+    required this.quantity,
+  });
+
+  final DateTime day;
+  final int intensity;
+  final double quantity;
+}
+
+class AnalyticsSnapshot {
+  const AnalyticsSnapshot({
+    required this.daily,
+    required this.hourly,
+    required this.triggers,
+    required this.heatmap,
+    required this.todayTotal,
+    required this.weekTotal,
+    required this.previousWeekTotal,
+    required this.averageMood,
+    required this.averageCraving,
+    required this.currentTargetDays,
+    required this.totalLogs,
+    required this.mostActiveWindow,
+    required this.reductionPercent,
+  });
+
+  final List<DailyUsage> daily;
+  final List<HourBucket> hourly;
+  final List<TriggerMetric> triggers;
+  final List<HeatmapCell> heatmap;
+  final double todayTotal;
+  final double weekTotal;
+  final double previousWeekTotal;
+  final double averageMood;
+  final double averageCraving;
+  final int currentTargetDays;
+  final int totalLogs;
+  final String mostActiveWindow;
+  final double reductionPercent;
+}
+
+class AnalyticsService {
+  static AnalyticsSnapshot buildSnapshot(AppState state) {
+    final now = DateTime.now();
+    final today = _dayStart(now);
+    final entries = [...state.entries]
+      ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+    final activeHabitIds = state.activeHabits.map((habit) => habit.id).toSet();
+    final scoped = entries
+        .where((entry) => activeHabitIds.contains(entry.habitId))
+        .toList(growable: false);
+
+    final daily = <DailyUsage>[];
+    for (var offset = 55; offset >= 0; offset--) {
+      final day = today.subtract(Duration(days: offset));
+      final dayEntries = scoped.where((entry) => _sameDay(entry.loggedAt, day));
+      daily.add(
+        DailyUsage(
+          day: day,
+          quantity: dayEntries.fold<double>(
+            0,
+            (total, entry) => total + entry.quantity,
+          ),
+          logs: dayEntries.length,
+          averageMood: _average(
+            dayEntries.map((entry) => entry.mood?.toDouble()).nonNulls,
+          ),
+          averageCraving: _average(
+            dayEntries.map((entry) => entry.craving?.toDouble()).nonNulls,
+          ),
+        ),
+      );
+    }
+
+    final hourly = [
+      for (var hour = 0; hour < 24; hour++)
+        HourBucket(
+          hour: hour,
+          quantity: scoped
+              .where((entry) => entry.loggedAt.hour == hour)
+              .fold<double>(0, (total, entry) => total + entry.quantity),
+          logs: scoped.where((entry) => entry.loggedAt.hour == hour).length,
+        ),
+    ];
+
+    final triggerTotals = <String, ({double quantity, int logs})>{};
+    for (final entry in scoped.where((entry) => entry.trigger != null)) {
+      final key = entry.trigger!;
+      final previous = triggerTotals[key] ?? (quantity: 0.0, logs: 0);
+      triggerTotals[key] = (
+        quantity: previous.quantity + entry.quantity,
+        logs: previous.logs + 1,
+      );
+    }
+    final triggers =
+        triggerTotals.entries
+            .map(
+              (entry) => TriggerMetric(
+                name: entry.key,
+                quantity: entry.value.quantity,
+                logs: entry.value.logs,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.quantity.compareTo(a.quantity));
+
+    final maxDaily = daily.fold<double>(
+      0,
+      (maxValue, day) => max(maxValue, day.quantity),
+    );
+    final heatmap = [
+      for (final day in daily)
+        HeatmapCell(
+          day: day.day,
+          quantity: day.quantity,
+          intensity: maxDaily <= 0
+              ? 0
+              : min(4, (day.quantity / maxDaily * 4).ceil()),
+        ),
+    ];
+
+    final weekStart = today.subtract(Duration(days: today.weekday - 1));
+    final previousWeekStart = weekStart.subtract(const Duration(days: 7));
+    final weekTotal = _sumBetween(scoped, weekStart, now);
+    final previousWeekTotal = _sumBetween(scoped, previousWeekStart, weekStart);
+    final double reductionPercent = previousWeekTotal <= 0
+        ? 0
+        : ((previousWeekTotal - weekTotal) / previousWeekTotal) * 100;
+
+    final currentTargetDays = _countRecentTargetDays(state, daily);
+    final strongestHour = hourly.reduce(
+      (a, b) => a.quantity >= b.quantity ? a : b,
+    );
+
+    return AnalyticsSnapshot(
+      daily: daily,
+      hourly: hourly,
+      triggers: triggers.take(5).toList(),
+      heatmap: heatmap,
+      todayTotal: daily.last.quantity,
+      weekTotal: weekTotal,
+      previousWeekTotal: previousWeekTotal,
+      averageMood: _average(
+        scoped.map((entry) => entry.mood?.toDouble()).nonNulls,
+      ),
+      averageCraving: _average(
+        scoped.map((entry) => entry.craving?.toDouble()).nonNulls,
+      ),
+      currentTargetDays: currentTargetDays,
+      totalLogs: scoped.length,
+      mostActiveWindow: _windowLabel(strongestHour.hour),
+      reductionPercent: reductionPercent,
+    );
+  }
+
+  static DateTime _dayStart(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  static bool _sameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  static double _average(Iterable<double> values) {
+    final list = values.toList(growable: false);
+    if (list.isEmpty) return 0;
+    return list.fold<double>(0, (total, value) => total + value) / list.length;
+  }
+
+  static double _sumBetween(
+    List<UsageEntry> entries,
+    DateTime start,
+    DateTime end,
+  ) {
+    return entries
+        .where(
+          (entry) =>
+              !entry.loggedAt.isBefore(start) && entry.loggedAt.isBefore(end),
+        )
+        .fold<double>(0, (total, entry) => total + entry.quantity);
+  }
+
+  static int _countRecentTargetDays(AppState state, List<DailyUsage> daily) {
+    final targets = state.activeHabits
+        .where((habit) => habit.dailyTarget != null)
+        .map((habit) => habit.dailyTarget!)
+        .toList();
+    if (targets.isEmpty) return 0;
+
+    final flexibleDailyTarget = targets.fold<double>(0, (a, b) => a + b);
+    var count = 0;
+    for (final day in daily.reversed) {
+      if (day.quantity <= flexibleDailyTarget) {
+        count += 1;
+      } else {
+        break;
+      }
+    }
+    return count;
+  }
+
+  static String _windowLabel(int hour) {
+    final end = (hour + 3) % 24;
+    String format(int value) {
+      if (value == 0) return '12 AM';
+      if (value < 12) return '$value AM';
+      if (value == 12) return '12 PM';
+      return '${value - 12} PM';
+    }
+
+    return '${format(hour)}-${format(end)}';
+  }
+}
