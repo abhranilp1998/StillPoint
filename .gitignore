@@ -1,0 +1,72 @@
+# OS and filesystem noise
+.DS_Store
+Thumbs.db
+
+# Logs and local temp files
+*.log
+*.tmp
+*.swp
+*.swo
+.history/
+
+# Dart, Flutter, and Pub generated files
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+**/doc/api/
+
+# Flutter build metadata generated per local SDK/install
+**/ios/Flutter/.last_build_id
+
+# Share VS Code project run configs, but keep personal settings local.
+.vscode/*
+!.vscode/
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+
+# Share only portable IntelliJ/Android Studio run configs.
+.idea/*
+!.idea/
+!.idea/runConfigurations/
+!.idea/runConfigurations/*.xml
+*.iml
+*.ipr
+*.iws
+
+# Android local/build output and signing secrets
+android/.gradle/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+android/app/build/
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+android/key.properties
+android/**/*.keystore
+android/**/*.jks
+
+# iOS local/build output and generated Flutter files
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/flutter_assets/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/app.flx
+ios/Flutter/app.zip
+ios/Runner/GeneratedPluginRegistrant.*
+ios/**/xcuserdata/
+ios/**/DerivedData/
+
+# Flutter release artifacts
+app.*.symbols
+app.*.map.json

@@ -1,0 +1,18 @@
+/.gradle/
+/captures/
+/local.properties
+/.cxx/
+
+/app/build/
+/app/debug/
+/app/profile/
+/app/release/
+
+/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
+# Keep Gradle wrapper files in Git so new machines can build consistently.
+
+# Never publicly share signing material.
+key.properties
+**/*.keystore
+**/*.jks
