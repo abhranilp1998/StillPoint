@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models.dart';
+import '../../core/quantity_math.dart';
 import '../../state/app_controller.dart';
 import '../widgets/habit_visuals.dart';
 
@@ -17,7 +18,8 @@ Future<void> showQuickLogSheet(BuildContext context, {Habit? initialHabit}) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
     ),
-    builder: (_) => QuickLogSheet(initialHabit: initialHabit),
+    builder: (_) =>
+        QuickLogSheet(initialHabit: initialHabit, launcherContext: context),
   );
 }
 
@@ -36,9 +38,10 @@ Future<void> showAddHabitSheet(BuildContext context) {
 }
 
 class QuickLogSheet extends ConsumerStatefulWidget {
-  const QuickLogSheet({super.key, this.initialHabit});
+  const QuickLogSheet({super.key, this.initialHabit, this.launcherContext});
 
   final Habit? initialHabit;
+  final BuildContext? launcherContext;
 
   @override
   ConsumerState<QuickLogSheet> createState() => _QuickLogSheetState();
@@ -60,7 +63,7 @@ class _QuickLogSheetState extends ConsumerState<QuickLogSheet> {
   void initState() {
     super.initState();
     _habit = widget.initialHabit;
-    _quantity = _defaultQuantity(widget.initialHabit);
+    _quantity = defaultQuantityFor(widget.initialHabit);
   }
 
   @override
@@ -82,107 +85,105 @@ class _QuickLogSheetState extends ConsumerState<QuickLogSheet> {
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
       padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 16),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 180),
-        child: _habit == null
-            ? _HabitPicker(
-                habits: habits,
-                onHabitSelected: (habit) {
-                  HapticFeedback.selectionClick();
-                  setState(() {
-                    _habit = habit;
-                    _quantity = _defaultQuantity(habit);
-                  });
-                },
-                onAddCustom: () {
-                  Navigator.pop(context);
-                  showAddHabitSheet(context);
-                },
-              )
-            : Column(
-                key: const ValueKey('logger'),
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      IconButton(
-                        tooltip: 'Choose habit',
-                        onPressed: () => setState(() => _habit = null),
-                        icon: const Icon(Icons.arrow_back_rounded),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          _habit!.name,
-                          style: theme.textTheme.titleLarge,
-                          overflow: TextOverflow.ellipsis,
+      child: SingleChildScrollView(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          child: _habit == null
+              ? _HabitPicker(
+                  habits: habits,
+                  onHabitSelected: (habit) {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _habit = habit;
+                      _quantity = defaultQuantityFor(habit);
+                    });
+                  },
+                  onAddCustom: () {
+                    final launcherContext = widget.launcherContext;
+                    Navigator.pop(context);
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (launcherContext?.mounted ?? false) {
+                        showAddHabitSheet(launcherContext!);
+                      }
+                    });
+                  },
+                )
+              : Column(
+                  key: const ValueKey('logger'),
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        IconButton(
+                          tooltip: 'Choose habit',
+                          onPressed: () => setState(() => _habit = null),
+                          icon: const Icon(Icons.arrow_back_rounded),
                         ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            _habit!.name,
+                            style: theme.textTheme.titleLarge,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _QuantityPicker(
+                      habit: _habit!,
+                      quantity: _quantity,
+                      onChanged: (value) => setState(() => _quantity = value),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton.icon(
+                      onPressed: () =>
+                          setState(() => _showContext = !_showContext),
+                      icon: Icon(
+                        _showContext
+                            ? Icons.expand_less_rounded
+                            : Icons.add_circle_outline_rounded,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  _QuantityPicker(
-                    habit: _habit!,
-                    quantity: _quantity,
-                    onChanged: (value) => setState(() => _quantity = value),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton.icon(
-                    onPressed: () =>
-                        setState(() => _showContext = !_showContext),
-                    icon: Icon(
-                      _showContext
-                          ? Icons.expand_less_rounded
-                          : Icons.add_circle_outline_rounded,
+                      label: Text(
+                        _showContext ? 'Less context' : 'Add context',
+                      ),
                     ),
-                    label: Text(_showContext ? 'Less context' : 'Add context'),
-                  ),
-                  AnimatedCrossFade(
-                    firstChild: const SizedBox.shrink(),
-                    secondChild: _ContextFields(
-                      mood: _mood,
-                      craving: _craving,
-                      stress: _stress,
-                      trigger: _trigger,
-                      noteController: _noteController,
-                      onMood: (value) => setState(() => _mood = value),
-                      onCraving: (value) => setState(() => _craving = value),
-                      onStress: (value) => setState(() => _stress = value),
-                      onTrigger: (value) => setState(() => _trigger = value),
+                    AnimatedCrossFade(
+                      firstChild: const SizedBox.shrink(),
+                      secondChild: _ContextFields(
+                        mood: _mood,
+                        craving: _craving,
+                        stress: _stress,
+                        trigger: _trigger,
+                        noteController: _noteController,
+                        onMood: (value) => setState(() => _mood = value),
+                        onCraving: (value) => setState(() => _craving = value),
+                        onStress: (value) => setState(() => _stress = value),
+                        onTrigger: (value) => setState(() => _trigger = value),
+                      ),
+                      crossFadeState: _showContext
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
+                      duration: const Duration(milliseconds: 180),
+                      sizeCurve: Curves.easeOutCubic,
                     ),
-                    crossFadeState: _showContext
-                        ? CrossFadeState.showSecond
-                        : CrossFadeState.showFirst,
-                    duration: const Duration(milliseconds: 180),
-                    sizeCurve: Curves.easeOutCubic,
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: _saving ? null : _save,
-                    icon: _saving
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.check_rounded),
-                    label: const Text('Save log'),
-                  ),
-                ],
-              ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.check_rounded),
+                      label: const Text('Save log'),
+                    ),
+                  ],
+                ),
+        ),
       ),
     );
-  }
-
-  double _defaultQuantity(Habit? habit) {
-    if (habit == null) return 1;
-    return switch (habit.category) {
-      HabitCategory.doomscrolling => 15,
-      HabitCategory.caffeine => 1,
-      HabitCategory.gambling => 1,
-      HabitCategory.pills => 1,
-      _ => 1,
-    };
   }
 
   Future<void> _save() async {
@@ -231,13 +232,14 @@ class _HabitPicker extends StatelessWidget {
         Text('Quick log', style: theme.textTheme.titleLarge),
         const SizedBox(height: 4),
         Text(
-          'Choose what you want to record.',
+          'Choose what you want to record. All local, no judgment.',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 16),
         GridView.builder(
+          padding: EdgeInsets.zero,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: habits.length + 1,
@@ -245,19 +247,16 @@ class _HabitPicker extends StatelessWidget {
             crossAxisCount: 2,
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
-            childAspectRatio: 2.5,
+            mainAxisExtent: 74,
           ),
           itemBuilder: (context, index) {
-            if (index == habits.length) {
-              return OutlinedButton.icon(
-                onPressed: onAddCustom,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Custom'),
-              );
+            if (index == 0) {
+              return AddTrackerTile(onTap: onAddCustom);
             }
+            final habit = habits[index - 1];
             return HabitPill(
-              habit: habits[index],
-              onTap: () => onHabitSelected(habits[index]),
+              habit: habit,
+              onTap: () => onHabitSelected(habit),
               compact: true,
             );
           },
@@ -281,14 +280,7 @@ class _QuantityPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final presets = switch (habit.category) {
-      HabitCategory.doomscrolling => const [5.0, 15.0, 30.0, 60.0],
-      HabitCategory.caffeine => const [1.0, 2.0, 3.0],
-      HabitCategory.alcohol => const [1.0, 2.0, 3.0, 4.0],
-      HabitCategory.cigarettes => const [1.0, 2.0, 5.0],
-      HabitCategory.pills => const [0.5, 1.0, 2.0],
-      _ => const [1.0, 2.0, 3.0],
-    };
+    final presets = quantityPresetsFor(habit);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,8 +293,8 @@ class _QuantityPicker extends StatelessWidget {
           children: [
             for (final value in presets)
               ChoiceChip(
-                selected: quantity == value,
-                label: Text(_formatQuantity(value)),
+                selected: sameQuantity(quantity, value),
+                label: Text(formatQuantity(value)),
                 onSelected: (_) => onChanged(value),
               ),
           ],
@@ -312,13 +304,15 @@ class _QuantityPicker extends StatelessWidget {
           children: [
             IconButton.filledTonal(
               tooltip: 'Decrease',
-              onPressed: quantity > 1 ? () => onChanged(quantity - 1) : null,
+              onPressed: canDecreaseQuantity(habit, quantity)
+                  ? () => onChanged(decreaseQuantity(habit, quantity))
+                  : null,
               icon: const Icon(Icons.remove_rounded),
             ),
             Expanded(
               child: Center(
                 child: Text(
-                  '${_formatQuantity(quantity)} ${habit.unit}',
+                  '${formatQuantity(quantity)} ${habit.unit}',
                   style: theme.textTheme.headlineMedium,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -327,19 +321,13 @@ class _QuantityPicker extends StatelessWidget {
             ),
             IconButton.filledTonal(
               tooltip: 'Increase',
-              onPressed: () => onChanged(quantity + 1),
+              onPressed: () => onChanged(increaseQuantity(habit, quantity)),
               icon: const Icon(Icons.add_rounded),
             ),
           ],
         ),
       ],
     );
-  }
-
-  String _formatQuantity(double value) {
-    return value == value.roundToDouble()
-        ? value.toInt().toString()
-        : value.toStringAsFixed(1);
   }
 }
 
@@ -361,10 +349,10 @@ class _ContextFields extends StatelessWidget {
   final int? stress;
   final String? trigger;
   final TextEditingController noteController;
-  final ValueChanged<int> onMood;
-  final ValueChanged<int> onCraving;
-  final ValueChanged<int> onStress;
-  final ValueChanged<String> onTrigger;
+  final ValueChanged<int?> onMood;
+  final ValueChanged<int?> onCraving;
+  final ValueChanged<int?> onStress;
+  final ValueChanged<String?> onTrigger;
 
   @override
   Widget build(BuildContext context) {
@@ -420,7 +408,7 @@ class _ScaleChips extends StatelessWidget {
   final String title;
   final int? value;
   final List<String> labels;
-  final ValueChanged<int> onChanged;
+  final ValueChanged<int?> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -438,7 +426,7 @@ class _ScaleChips extends StatelessWidget {
               ChoiceChip(
                 label: Text(labels[i]),
                 selected: value == i + 1,
-                onSelected: (_) => onChanged(i + 1),
+                onSelected: (_) => onChanged(value == i + 1 ? null : i + 1),
               ),
           ],
         ),
@@ -451,7 +439,7 @@ class _TriggerChips extends StatelessWidget {
   const _TriggerChips({required this.trigger, required this.onChanged});
 
   final String? trigger;
-  final ValueChanged<String> onChanged;
+  final ValueChanged<String?> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -478,7 +466,7 @@ class _TriggerChips extends StatelessWidget {
               ChoiceChip(
                 label: Text(item),
                 selected: trigger == item,
-                onSelected: (_) => onChanged(item),
+                onSelected: (_) => onChanged(trigger == item ? null : item),
               ),
           ],
         ),
@@ -497,12 +485,14 @@ class AddHabitSheet extends ConsumerStatefulWidget {
 class _AddHabitSheetState extends ConsumerState<AddHabitSheet> {
   final _nameController = TextEditingController();
   final _unitController = TextEditingController(text: 'units');
+  final _costController = TextEditingController();
   HabitCategory _category = HabitCategory.custom;
 
   @override
   void dispose() {
     _nameController.dispose();
     _unitController.dispose();
+    _costController.dispose();
     super.dispose();
   }
 
@@ -511,45 +501,72 @@ class _AddHabitSheetState extends ConsumerState<AddHabitSheet> {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Custom tracker', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _nameController,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(labelText: 'Name'),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<HabitCategory>(
-            initialValue: _category,
-            decoration: const InputDecoration(labelText: 'Type'),
-            items: [
-              for (final category in HabitCategory.values)
-                DropdownMenuItem(value: category, child: Text(category.label)),
-            ],
-            onChanged: (value) {
-              if (value == null) return;
-              setState(() {
-                _category = value;
-                _unitController.text = value.defaultUnit;
-              });
-            },
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _unitController,
-            decoration: const InputDecoration(labelText: 'Unit'),
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: _save,
-            icon: const Icon(Icons.check_rounded),
-            label: const Text('Add tracker'),
-          ),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Custom tracker',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Name the pattern in your own words. You can change it later.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _nameController,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<HabitCategory>(
+              initialValue: _category,
+              decoration: const InputDecoration(labelText: 'Type'),
+              items: [
+                for (final category in HabitCategory.values)
+                  DropdownMenuItem(
+                    value: category,
+                    child: Text(category.label),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _category = value;
+                  _unitController.text = value.defaultUnit;
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _unitController,
+              decoration: const InputDecoration(labelText: 'Unit'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _costController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Cost per unit',
+                prefixText: '\$',
+                hintText: 'Optional',
+              ),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _save,
+              icon: const Icon(Icons.check_rounded),
+              label: const Text('Add tracker'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -563,7 +580,13 @@ class _AddHabitSheetState extends ConsumerState<AddHabitSheet> {
           name: name,
           category: _category,
           unit: _unitController.text,
+          costPerUnit: double.tryParse(_costController.text.trim()),
         );
-    if (mounted) Navigator.pop(context);
+    if (mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tracker added. It is yours to shape.')),
+      );
+    }
   }
 }

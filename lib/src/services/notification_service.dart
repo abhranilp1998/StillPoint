@@ -6,6 +6,9 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 });
 
 class NotificationService {
+  static const _previewReminderId = 1001;
+  static const _occasionalReminderId = 1002;
+
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
@@ -33,11 +36,44 @@ class NotificationService {
         ?.requestPermissions(alert: true, badge: false, sound: true);
   }
 
+  Future<void> scheduleOccasionalReminders({
+    required bool hiddenContent,
+  }) async {
+    await cancelOccasionalReminders();
+    await _plugin.periodicallyShowWithDuration(
+      id: _occasionalReminderId,
+      repeatDurationInterval: const Duration(days: 3),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      title: hiddenContent ? 'Gentle check-in' : 'A gentle Stillpoint check-in',
+      body: hiddenContent
+          ? 'Open the app when you have a quiet moment.'
+          : 'All local. Nobody is judging. Log only what feels useful.',
+      notificationDetails: _reminderDetails(),
+      payload: 'occasional_check_in',
+    );
+  }
+
+  Future<void> cancelOccasionalReminders() {
+    return _plugin.cancel(id: _occasionalReminderId);
+  }
+
   Future<void> showSoftReminder({required bool hiddenContent}) async {
+    await _plugin.show(
+      id: _previewReminderId,
+      title: hiddenContent ? 'Mindful check-in' : 'You are allowed to go slow',
+      body: hiddenContent
+          ? 'Open the app when you have a quiet moment.'
+          : 'A tiny log is enough. All local, no judgment.',
+      notificationDetails: _reminderDetails(),
+    );
+  }
+
+  NotificationDetails _reminderDetails() {
     const android = AndroidNotificationDetails(
       'mindful_recovery_soft_reminders',
-      'Soft reminders',
-      channelDescription: 'Optional, neutral reminders for logging patterns.',
+      'Gentle check-ins',
+      channelDescription:
+          'Optional, warm reminders for calm local self-check-ins.',
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
       category: AndroidNotificationCategory.reminder,
@@ -45,19 +81,6 @@ class NotificationService {
     const ios = DarwinNotificationDetails(
       interruptionLevel: InterruptionLevel.passive,
     );
-
-    await _plugin.show(
-      id: 1001,
-      title: hiddenContent
-          ? 'Mindful check-in'
-          : 'Would you like to log today?',
-      body: hiddenContent
-          ? 'Open the app when you have a quiet moment.'
-          : 'You usually log around this time.',
-      notificationDetails: const NotificationDetails(
-        android: android,
-        iOS: ios,
-      ),
-    );
+    return const NotificationDetails(android: android, iOS: ios);
   }
 }

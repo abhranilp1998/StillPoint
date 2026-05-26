@@ -69,6 +69,14 @@ class GuidanceService {
         ],
       ),
       HabitCategory.drugs ||
+      HabitCategory.cannabis ||
+      HabitCategory.cocaine ||
+      HabitCategory.methamphetamine ||
+      HabitCategory.hallucinogens ||
+      HabitCategory.inhalants ||
+      HabitCategory.syntheticCannabinoids ||
+      HabitCategory.kratom ||
+      HabitCategory.otherDrugs ||
       HabitCategory.recreationalSubstances => const RiskProfile(
         title: 'Drug use risk notes',
         riskSummary:
@@ -100,6 +108,10 @@ class GuidanceService {
         ],
       ),
       HabitCategory.pills ||
+      HabitCategory.opioids ||
+      HabitCategory.benzodiazepines ||
+      HabitCategory.sedatives ||
+      HabitCategory.coughMedicine ||
       HabitCategory.prescriptionMisuse => const RiskProfile(
         title: 'Pills and prescription misuse',
         riskSummary:

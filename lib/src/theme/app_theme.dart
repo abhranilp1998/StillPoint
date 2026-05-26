@@ -14,6 +14,7 @@ class AppTheme {
       secondary: _blue,
       tertiary: _warm,
       surface: const Color(0xFFFBFAF7),
+      dynamicSchemeVariant: DynamicSchemeVariant.expressive,
     );
     return _base(scheme).copyWith(
       scaffoldBackgroundColor: const Color(0xFFF5F3EE),
@@ -29,6 +30,7 @@ class AppTheme {
       secondary: const Color(0xFF88C4DE),
       tertiary: const Color(0xFFE2A17E),
       surface: const Color(0xFF161B19),
+      dynamicSchemeVariant: DynamicSchemeVariant.expressive,
     );
     return _base(scheme).copyWith(
       scaffoldBackgroundColor: const Color(0xFF101412),
@@ -44,7 +46,7 @@ class AppTheme {
       visualDensity: VisualDensity.standard,
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
           TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
@@ -53,9 +55,11 @@ class AppTheme {
       ),
       appBarTheme: AppBarTheme(
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
-        backgroundColor: Colors.transparent,
+        backgroundColor: scheme.surface,
         foregroundColor: scheme.onSurface,
+        surfaceTintColor: Colors.transparent,
       ),
       cardTheme: CardThemeData(
         elevation: 0,
@@ -71,11 +75,22 @@ class AppTheme {
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          minimumSize: const Size.square(48),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(48, 48),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
+      ),
+      chipTheme: ChipThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .55)),
+        labelStyle: const TextStyle(fontWeight: FontWeight.w600),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -89,6 +104,14 @@ class AppTheme {
         elevation: 0,
         backgroundColor: scheme.surface.withValues(alpha: .94),
         indicatorColor: scheme.primaryContainer.withValues(alpha: .7),
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            size: states.contains(WidgetState.selected) ? 25 : 23,
+            color: states.contains(WidgetState.selected)
+                ? scheme.onPrimaryContainer
+                : scheme.onSurfaceVariant,
+          ),
+        ),
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
             fontSize: 12,
@@ -96,6 +119,16 @@ class AppTheme {
                 ? FontWeight.w800
                 : FontWeight.w600,
           ),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        showDragHandle: true,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
         ),
       ),
       textTheme:

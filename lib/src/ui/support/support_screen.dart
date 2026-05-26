@@ -306,6 +306,7 @@ class GroundingPrompts extends StatelessWidget {
         const SectionHeader(title: 'Grounding'),
         const SizedBox(height: 10),
         GridView.builder(
+          padding: EdgeInsets.zero,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: prompts.length,

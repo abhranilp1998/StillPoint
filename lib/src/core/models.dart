@@ -4,6 +4,18 @@ enum HabitCategory {
   cigarettes,
   vaping,
   alcohol,
+  cannabis,
+  opioids,
+  cocaine,
+  methamphetamine,
+  benzodiazepines,
+  sedatives,
+  hallucinogens,
+  inhalants,
+  syntheticCannabinoids,
+  coughMedicine,
+  kratom,
+  otherDrugs,
   drugs,
   pills,
   recreationalSubstances,
@@ -18,6 +30,18 @@ enum HabitCategory {
     HabitCategory.cigarettes => 'Cigarettes',
     HabitCategory.vaping => 'Vaping',
     HabitCategory.alcohol => 'Alcohol',
+    HabitCategory.cannabis => 'Cannabis',
+    HabitCategory.opioids => 'Opioids',
+    HabitCategory.cocaine => 'Cocaine',
+    HabitCategory.methamphetamine => 'Methamphetamine',
+    HabitCategory.benzodiazepines => 'Benzodiazepines',
+    HabitCategory.sedatives => 'Sedatives',
+    HabitCategory.hallucinogens => 'Hallucinogens',
+    HabitCategory.inhalants => 'Inhalants',
+    HabitCategory.syntheticCannabinoids => 'Synthetic cannabinoids',
+    HabitCategory.coughMedicine => 'Cough medicine',
+    HabitCategory.kratom => 'Kratom',
+    HabitCategory.otherDrugs => 'Other drugs',
     HabitCategory.drugs => 'Drugs',
     HabitCategory.pills => 'Pills',
     HabitCategory.recreationalSubstances => 'Recreational substances',
@@ -33,6 +57,18 @@ enum HabitCategory {
     HabitCategory.cigarettes => 'cigarettes',
     HabitCategory.vaping => 'sessions',
     HabitCategory.alcohol => 'drinks',
+    HabitCategory.cannabis => 'uses',
+    HabitCategory.opioids => 'doses',
+    HabitCategory.cocaine => 'uses',
+    HabitCategory.methamphetamine => 'uses',
+    HabitCategory.benzodiazepines => 'doses',
+    HabitCategory.sedatives => 'doses',
+    HabitCategory.hallucinogens => 'uses',
+    HabitCategory.inhalants => 'uses',
+    HabitCategory.syntheticCannabinoids => 'uses',
+    HabitCategory.coughMedicine => 'doses',
+    HabitCategory.kratom => 'doses',
+    HabitCategory.otherDrugs => 'uses',
     HabitCategory.drugs => 'uses',
     HabitCategory.pills => 'pills',
     HabitCategory.recreationalSubstances => 'uses',
@@ -90,6 +126,7 @@ class Habit {
     required this.createdAt,
     this.reductionMode = ReductionMode.monitor,
     this.dailyTarget,
+    this.costPerUnit,
     this.archived = false,
   });
 
@@ -101,6 +138,7 @@ class Habit {
   final DateTime createdAt;
   final ReductionMode reductionMode;
   final double? dailyTarget;
+  final double? costPerUnit;
   final bool archived;
 
   Habit copyWith({
@@ -113,6 +151,8 @@ class Habit {
     ReductionMode? reductionMode,
     double? dailyTarget,
     bool clearDailyTarget = false,
+    double? costPerUnit,
+    bool clearCostPerUnit = false,
     bool? archived,
   }) {
     return Habit(
@@ -124,6 +164,7 @@ class Habit {
       createdAt: createdAt ?? this.createdAt,
       reductionMode: reductionMode ?? this.reductionMode,
       dailyTarget: clearDailyTarget ? null : dailyTarget ?? this.dailyTarget,
+      costPerUnit: clearCostPerUnit ? null : costPerUnit ?? this.costPerUnit,
       archived: archived ?? this.archived,
     );
   }
@@ -138,6 +179,7 @@ class Habit {
       'createdAt': createdAt.toIso8601String(),
       'reductionMode': reductionMode.name,
       'dailyTarget': dailyTarget,
+      'costPerUnit': costPerUnit,
       'archived': archived,
     };
   }
@@ -156,6 +198,7 @@ class Habit {
         map['reductionMode'] as String? ?? '',
       ),
       dailyTarget: (map['dailyTarget'] as num?)?.toDouble(),
+      costPerUnit: (map['costPerUnit'] as num?)?.toDouble(),
       archived: map['archived'] as bool? ?? false,
     );
   }
@@ -247,7 +290,7 @@ class AppSettings {
     this.pinHash,
     this.offlineMode = true,
     this.hiddenNotifications = true,
-    this.softReminders = true,
+    this.softReminders = false,
     this.quietHours = true,
     this.quietStartHour = 22,
     this.quietEndHour = 8,
@@ -324,7 +367,7 @@ class AppSettings {
       pinHash: map['pinHash'] as String?,
       offlineMode: map['offlineMode'] as bool? ?? true,
       hiddenNotifications: map['hiddenNotifications'] as bool? ?? true,
-      softReminders: map['softReminders'] as bool? ?? true,
+      softReminders: map['softReminders'] as bool? ?? false,
       quietHours: map['quietHours'] as bool? ?? true,
       quietStartHour: (map['quietStartHour'] as num?)?.toInt() ?? 22,
       quietEndHour: (map['quietEndHour'] as num?)?.toInt() ?? 8,
@@ -414,7 +457,23 @@ class AppState {
       (HabitCategory.cigarettes, 'Cigarettes', 0xFF6A8F7A),
       (HabitCategory.vaping, 'Vaping', 0xFF4F8DAA),
       (HabitCategory.alcohol, 'Alcohol', 0xFFC77D57),
-      (HabitCategory.drugs, 'Drugs', 0xFF707C64),
+      (HabitCategory.cannabis, 'Cannabis', 0xFF6F8E65),
+      (HabitCategory.opioids, 'Opioids', 0xFF657E99),
+      (HabitCategory.cocaine, 'Cocaine', 0xFF8F806A),
+      (HabitCategory.methamphetamine, 'Methamphetamine', 0xFF66889A),
+      (HabitCategory.benzodiazepines, 'Benzodiazepines', 0xFF6C6799),
+      (HabitCategory.prescriptionMisuse, 'Prescription misuse', 0xFFB8873C),
+      (HabitCategory.sedatives, 'Sedatives', 0xFF6D8497),
+      (HabitCategory.hallucinogens, 'Hallucinogens', 0xFF9A6D94),
+      (HabitCategory.inhalants, 'Inhalants', 0xFF6F90A4),
+      (
+        HabitCategory.syntheticCannabinoids,
+        'Synthetic cannabinoids',
+        0xFF78936B,
+      ),
+      (HabitCategory.coughMedicine, 'Cough medicine', 0xFF9B6D64),
+      (HabitCategory.kratom, 'Kratom', 0xFF718F63),
+      (HabitCategory.otherDrugs, 'Other drugs', 0xFF7B766A),
       (HabitCategory.pills, 'Pills', 0xFF5B7F95),
       (HabitCategory.caffeine, 'Caffeine', 0xFFB88A44),
       (HabitCategory.doomscrolling, 'Doomscrolling', 0xFF7E8A97),
@@ -425,7 +484,7 @@ class AppState {
         'Recreational substances',
         0xFF60735B,
       ),
-      (HabitCategory.prescriptionMisuse, 'Prescription misuse', 0xFF536E8B),
+      (HabitCategory.drugs, 'Drugs', 0xFF707C64),
     ];
 
     return [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'state/app_controller.dart';
@@ -25,12 +26,27 @@ class RecoveryApp extends ConsumerWidget {
       darkTheme: AppTheme.dark(),
       themeMode: themeMode,
       builder: (context, child) {
-        if (!(settings?.reduceMotion ?? false) || child == null) {
-          return child ?? const SizedBox.shrink();
-        }
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(disableAnimations: true),
-          child: child,
+        final baseChild = child ?? const SizedBox.shrink();
+        final content = settings?.reduceMotion ?? false
+            ? MediaQuery(
+                data: MediaQuery.of(context).copyWith(disableAnimations: true),
+                child: baseChild,
+              )
+            : baseChild;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final overlayStyle = isDark
+            ? SystemUiOverlayStyle.light
+            : SystemUiOverlayStyle.dark;
+
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: overlayStyle.copyWith(
+            statusBarColor: Colors.transparent,
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarDividerColor: Colors.transparent,
+            systemStatusBarContrastEnforced: false,
+            systemNavigationBarContrastEnforced: false,
+          ),
+          child: content,
         );
       },
       home: const AppShell(),

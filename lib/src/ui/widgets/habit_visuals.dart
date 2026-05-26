@@ -1,12 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
+import 'adaptive_scaffold.dart';
 
 IconData habitIcon(HabitCategory category) {
   return switch (category) {
     HabitCategory.cigarettes => Icons.smoking_rooms_outlined,
     HabitCategory.vaping => Icons.air_outlined,
     HabitCategory.alcohol => Icons.local_bar_outlined,
+    HabitCategory.cannabis => Icons.grass_outlined,
+    HabitCategory.opioids => Icons.medication_liquid_outlined,
+    HabitCategory.cocaine => Icons.bolt_rounded,
+    HabitCategory.methamphetamine => Icons.offline_bolt_outlined,
+    HabitCategory.benzodiazepines => Icons.nightlight_round,
+    HabitCategory.sedatives => Icons.bedtime_outlined,
+    HabitCategory.hallucinogens => Icons.blur_on_rounded,
+    HabitCategory.inhalants => Icons.air_rounded,
+    HabitCategory.syntheticCannabinoids => Icons.biotech_outlined,
+    HabitCategory.coughMedicine => Icons.medical_services_outlined,
+    HabitCategory.kratom => Icons.eco_outlined,
+    HabitCategory.otherDrugs => Icons.science_outlined,
     HabitCategory.drugs => Icons.science_outlined,
     HabitCategory.pills => Icons.medication_outlined,
     HabitCategory.recreationalSubstances => Icons.spa_outlined,
@@ -37,40 +50,133 @@ class HabitPill extends StatelessWidget {
     final color = Color(habit.colorValue);
     return ConstrainedBox(
       constraints: BoxConstraints(minHeight: compact ? 52 : 68),
-      child: InkWell(
+      child: CalmCard(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Ink(
-          padding: EdgeInsets.symmetric(
-            horizontal: compact ? 12 : 14,
-            vertical: compact ? 10 : 12,
-          ),
-          decoration: BoxDecoration(
-            color: color.withValues(
-              alpha: theme.brightness == Brightness.dark ? .20 : .12,
-            ),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withValues(alpha: .24)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                habitIcon(habit.category),
-                color: color,
-                size: compact ? 20 : 22,
-              ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Text(
-                  habit.name,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge,
-                ),
-              ),
-            ],
-          ),
+        semanticLabel: 'Log ${habit.name}',
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 12 : 14,
+          vertical: compact ? 10 : 12,
         ),
+        color: color.withValues(
+          alpha: theme.brightness == Brightness.dark ? .20 : .10,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              habitIcon(habit.category),
+              color: color,
+              size: compact ? 20 : 22,
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                habit.name,
+                overflow: TextOverflow.ellipsis,
+                style: compact
+                    ? theme.textTheme.labelLarge
+                    : theme.textTheme.titleSmall,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class TrackerTile extends StatelessWidget {
+  const TrackerTile({
+    super.key,
+    required this.habit,
+    required this.onTap,
+    this.subtitle,
+  });
+
+  final Habit habit;
+  final VoidCallback onTap;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = Color(habit.colorValue);
+    return CalmCard(
+      onTap: onTap,
+      semanticLabel: 'Open ${habit.name}',
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      color: color.withValues(
+        alpha: theme.brightness == Brightness.dark ? .18 : .08,
+      ),
+      child: Row(
+        children: [
+          Icon(habitIcon(habit.category), color: color, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  habit.name,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle ?? habit.reductionMode.label,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AddTrackerTile extends StatelessWidget {
+  const AddTrackerTile({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return CalmCard(
+      onTap: onTap,
+      semanticLabel: 'Add custom tracker',
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      color: theme.colorScheme.primaryContainer.withValues(alpha: .38),
+      child: Row(
+        children: [
+          Icon(Icons.add_rounded, color: theme.colorScheme.primary, size: 26),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Custom tracker', style: theme.textTheme.titleMedium),
+                const SizedBox(height: 3),
+                Text(
+                  'Create what you need',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

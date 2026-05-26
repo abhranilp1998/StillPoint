@@ -86,16 +86,20 @@ class HabitDetailScreen extends ConsumerWidget {
   }
 }
 
-class _HabitHero extends StatelessWidget {
+class _HabitHero extends ConsumerWidget {
   const _HabitHero({required this.habit, required this.entries});
 
   final Habit habit;
   final List<UsageEntry> entries;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final total = entries.totalQuantity;
+    final estimatedCost = entries.fold<double>(
+      0,
+      (value, entry) => value + entry.quantity * (habit.costPerUnit ?? 0),
+    );
     final last = entries.isEmpty
         ? 'No logs yet'
         : DateFormat('MMM d, h:mm a').format(entries.first.loggedAt);
@@ -136,6 +140,7 @@ class _HabitHero extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           GridView(
+            padding: EdgeInsets.zero,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -165,7 +170,25 @@ class _HabitHero extends StatelessWidget {
                 value: habit.unit,
                 icon: Icons.straighten_rounded,
               ),
+              MetricTile(
+                label: 'Could stay with you',
+                value: habit.costPerUnit == null
+                    ? 'Set cost'
+                    : _formatMoney(estimatedCost),
+                icon: Icons.savings_outlined,
+              ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: () => _editCost(context, ref),
+              icon: const Icon(Icons.attach_money_rounded),
+              label: Text(
+                habit.costPerUnit == null ? 'Set unit cost' : 'Edit unit cost',
+              ),
+            ),
           ),
         ],
       ),
@@ -176,6 +199,59 @@ class _HabitHero extends StatelessWidget {
     return value == value.roundToDouble()
         ? value.toInt().toString()
         : value.toStringAsFixed(1);
+  }
+
+  String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';
+
+  Future<void> _editCost(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController(
+      text: habit.costPerUnit == null ? '' : habit.costPerUnit!.toString(),
+    );
+    final result = await showDialog<Object?>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Cost for ${habit.name}'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            labelText: 'Cost per ${habit.unit}',
+            prefixText: '\$',
+            hintText: 'Leave blank to remove',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'cancel'),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Clear'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(context, double.tryParse(controller.text.trim()));
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (result == 'cancel') return;
+    if (result == null) {
+      await ref
+          .read(appControllerProvider.notifier)
+          .updateHabit(habit.copyWith(clearCostPerUnit: true));
+      return;
+    }
+    final cost = result as double?;
+    if (cost == null || cost <= 0) return;
+    await ref
+        .read(appControllerProvider.notifier)
+        .updateHabit(habit.copyWith(costPerUnit: cost));
   }
 }
 

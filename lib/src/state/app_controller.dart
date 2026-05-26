@@ -105,6 +105,7 @@ class AppController extends AsyncNotifier<AppState> {
     required String name,
     required HabitCategory category,
     required String unit,
+    double? costPerUnit,
   }) async {
     final current = await _current();
     final palette = [
@@ -122,6 +123,7 @@ class AppController extends AsyncNotifier<AppState> {
       unit: unit.trim().isEmpty ? category.defaultUnit : unit.trim(),
       colorValue: palette[current.habits.length % palette.length],
       createdAt: DateTime.now(),
+      costPerUnit: costPerUnit == null || costPerUnit <= 0 ? null : costPerUnit,
     );
 
     final next = current.copyWith(habits: [...current.habits, habit]);

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/models.dart';
+import '../../core/quantity_math.dart';
 import '../../state/app_controller.dart';
 
 Future<void> showEntryEditorSheet(
@@ -92,11 +93,18 @@ class _EntryEditorSheetState extends ConsumerState<EntryEditorSheet> {
               children: [
                 IconButton.filledTonal(
                   tooltip: 'Decrease',
-                  onPressed: _quantity > 0
+                  onPressed:
+                      canDecreaseQuantity(
+                        widget.habit,
+                        _quantity,
+                        allowZero: true,
+                      )
                       ? () => setState(
-                          () => _quantity = (_quantity - 1)
-                              .clamp(0, double.infinity)
-                              .toDouble(),
+                          () => _quantity = decreaseQuantity(
+                            widget.habit,
+                            _quantity,
+                            allowZero: true,
+                          ),
                         )
                       : null,
                   icon: const Icon(Icons.remove_rounded),
@@ -104,7 +112,7 @@ class _EntryEditorSheetState extends ConsumerState<EntryEditorSheet> {
                 Expanded(
                   child: Center(
                     child: Text(
-                      '${_format(_quantity)} ${widget.habit.unit}',
+                      '${formatQuantity(_quantity)} ${widget.habit.unit}',
                       style: theme.textTheme.headlineMedium,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -113,7 +121,9 @@ class _EntryEditorSheetState extends ConsumerState<EntryEditorSheet> {
                 ),
                 IconButton.filledTonal(
                   tooltip: 'Increase',
-                  onPressed: () => setState(() => _quantity++),
+                  onPressed: () => setState(
+                    () => _quantity = increaseQuantity(widget.habit, _quantity),
+                  ),
                   icon: const Icon(Icons.add_rounded),
                 ),
               ],
@@ -246,12 +256,6 @@ class _EntryEditorSheetState extends ConsumerState<EntryEditorSheet> {
     if (confirmed != true) return;
     await ref.read(appControllerProvider.notifier).deleteEntry(widget.entry.id);
     if (mounted) Navigator.pop(context);
-  }
-
-  String _format(double value) {
-    return value == value.roundToDouble()
-        ? value.toInt().toString()
-        : value.toStringAsFixed(1);
   }
 }
 

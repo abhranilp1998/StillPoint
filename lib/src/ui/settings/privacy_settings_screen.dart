@@ -65,7 +65,7 @@ class _PrivacyHeader extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             settings.offlineMode
-                ? 'Your logs are stored on this device with an encrypted Hive box. Cloud sync can be added later without changing the local model.'
+                ? 'All local. Nobody is judging. Your logs stay on this device with an encrypted Hive box.'
                 : 'Local storage remains active; online sync can be layered behind your consent.',
             style: theme.textTheme.bodyLarge?.copyWith(
               color: theme.colorScheme.onPrimaryContainer.withValues(
@@ -235,22 +235,34 @@ class _NotificationCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeader(title: 'Notifications'),
+          const SectionHeader(title: 'Gentle reminders'),
           const SizedBox(height: 8),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Soft reminders'),
-            subtitle: const Text('Neutral check-ins, never streak pressure.'),
+            title: const Text('Occasional check-ins'),
+            subtitle: const Text(
+              'Opt-in warm reminders about every few days. No streak pressure.',
+            ),
             value: settings.softReminders,
             onChanged: (value) async {
+              final next = settings.copyWith(softReminders: value);
               if (value) {
                 await ref
                     .read(notificationServiceProvider)
                     .requestPermissions();
+                await ref
+                    .read(notificationServiceProvider)
+                    .scheduleOccasionalReminders(
+                      hiddenContent: next.hiddenNotifications,
+                    );
+              } else {
+                await ref
+                    .read(notificationServiceProvider)
+                    .cancelOccasionalReminders();
               }
               await ref
                   .read(appControllerProvider.notifier)
-                  .updateSettings(settings.copyWith(softReminders: value));
+                  .updateSettings(next);
             },
           ),
           SwitchListTile(
@@ -260,20 +272,17 @@ class _NotificationCard extends ConsumerWidget {
               'Sensitive details stay out of notifications.',
             ),
             value: settings.hiddenNotifications,
-            onChanged: (value) => ref
-                .read(appControllerProvider.notifier)
-                .updateSettings(settings.copyWith(hiddenNotifications: value)),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Quiet hours'),
-            subtitle: Text(
-              '${settings.quietStartHour}:00-${settings.quietEndHour}:00',
-            ),
-            value: settings.quietHours,
-            onChanged: (value) => ref
-                .read(appControllerProvider.notifier)
-                .updateSettings(settings.copyWith(quietHours: value)),
+            onChanged: (value) async {
+              final next = settings.copyWith(hiddenNotifications: value);
+              if (next.softReminders) {
+                await ref
+                    .read(notificationServiceProvider)
+                    .scheduleOccasionalReminders(hiddenContent: value);
+              }
+              await ref
+                  .read(appControllerProvider.notifier)
+                  .updateSettings(next);
+            },
           ),
           Align(
             alignment: Alignment.centerLeft,

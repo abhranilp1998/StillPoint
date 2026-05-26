@@ -69,6 +69,10 @@ class AnalyticsSnapshot {
     required this.totalLogs,
     required this.mostActiveWindow,
     required this.reductionPercent,
+    required this.totalEstimatedCost,
+    required this.weekEstimatedCost,
+    required this.todayEstimatedCost,
+    required this.habitsWithCost,
   });
 
   final List<DailyUsage> daily;
@@ -84,6 +88,10 @@ class AnalyticsSnapshot {
   final int totalLogs;
   final String mostActiveWindow;
   final double reductionPercent;
+  final double totalEstimatedCost;
+  final double weekEstimatedCost;
+  final double todayEstimatedCost;
+  final int habitsWithCost;
 }
 
 class AnalyticsService {
@@ -93,6 +101,9 @@ class AnalyticsService {
     final entries = [...state.entries]
       ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
     final activeHabitIds = state.activeHabits.map((habit) => habit.id).toSet();
+    final habitsById = {
+      for (final habit in state.activeHabits) habit.id: habit,
+    };
     final scoped = entries
         .where((entry) => activeHabitIds.contains(entry.habitId))
         .toList(growable: false);
@@ -170,6 +181,15 @@ class AnalyticsService {
     final previousWeekStart = weekStart.subtract(const Duration(days: 7));
     final weekTotal = _sumBetween(scoped, weekStart, now);
     final previousWeekTotal = _sumBetween(scoped, previousWeekStart, weekStart);
+    final totalEstimatedCost = _costFor(scoped, habitsById);
+    final weekEstimatedCost = _costFor(
+      _between(scoped, weekStart, now),
+      habitsById,
+    );
+    final todayEstimatedCost = _costFor(
+      scoped.where((entry) => _sameDay(entry.loggedAt, today)),
+      habitsById,
+    );
     final double reductionPercent = previousWeekTotal <= 0
         ? 0
         : ((previousWeekTotal - weekTotal) / previousWeekTotal) * 100;
@@ -197,6 +217,12 @@ class AnalyticsService {
       totalLogs: scoped.length,
       mostActiveWindow: _windowLabel(strongestHour.hour),
       reductionPercent: reductionPercent,
+      totalEstimatedCost: totalEstimatedCost,
+      weekEstimatedCost: weekEstimatedCost,
+      todayEstimatedCost: todayEstimatedCost,
+      habitsWithCost: state.activeHabits
+          .where((habit) => (habit.costPerUnit ?? 0) > 0)
+          .length,
     );
   }
 
@@ -219,12 +245,33 @@ class AnalyticsService {
     DateTime start,
     DateTime end,
   ) {
-    return entries
-        .where(
-          (entry) =>
-              !entry.loggedAt.isBefore(start) && entry.loggedAt.isBefore(end),
-        )
-        .fold<double>(0, (total, entry) => total + entry.quantity);
+    return _between(
+      entries,
+      start,
+      end,
+    ).fold<double>(0, (total, entry) => total + entry.quantity);
+  }
+
+  static Iterable<UsageEntry> _between(
+    List<UsageEntry> entries,
+    DateTime start,
+    DateTime end,
+  ) {
+    return entries.where(
+      (entry) =>
+          !entry.loggedAt.isBefore(start) && entry.loggedAt.isBefore(end),
+    );
+  }
+
+  static double _costFor(
+    Iterable<UsageEntry> entries,
+    Map<String, Habit> habitsById,
+  ) {
+    return entries.fold<double>(0, (total, entry) {
+      final cost = habitsById[entry.habitId]?.costPerUnit;
+      if (cost == null || cost <= 0) return total;
+      return total + entry.quantity * cost;
+    });
   }
 
   static int _countRecentTargetDays(AppState state, List<DailyUsage> daily) {

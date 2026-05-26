@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class ScreenPadding extends StatelessWidget {
   const ScreenPadding({super.key, required this.child});
@@ -19,37 +20,98 @@ class ScreenPadding extends StatelessWidget {
   }
 }
 
-class CalmCard extends StatelessWidget {
+class CalmCard extends StatefulWidget {
   const CalmCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(16),
     this.color,
+    this.onTap,
+    this.semanticLabel,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? color;
+  final VoidCallback? onTap;
+  final String? semanticLabel;
+
+  @override
+  State<CalmCard> createState() => _CalmCardState();
+}
+
+class _CalmCardState extends State<CalmCard> {
+  bool _hovered = false;
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() => _pressed = value);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return DecoratedBox(
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final interactive = widget.onTap != null;
+    final active = interactive && (_hovered || _pressed);
+    final offset = !reduceMotion && active
+        ? Offset(0, _pressed ? 1 : -1)
+        : Offset.zero;
+    final scale = !reduceMotion && _pressed ? .988 : 1.0;
+    final shadowAlpha = interactive
+        ? (_pressed ? .08 : (_hovered ? .16 : .09))
+        : .08;
+
+    final card = AnimatedContainer(
+      duration: Duration(milliseconds: reduceMotion ? 1 : 150),
+      curve: Curves.easeOutCubic,
+      transform: Matrix4.translationValues(offset.dx, offset.dy, 0)
+        ..scaleByDouble(scale, scale, scale, 1),
+      transformAlignment: Alignment.center,
       decoration: BoxDecoration(
-        color: color ?? theme.colorScheme.surface,
+        color: widget.color ?? theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: .45),
+          color: active
+              ? theme.colorScheme.primary.withValues(alpha: .34)
+              : theme.colorScheme.outlineVariant.withValues(alpha: .45),
         ),
         boxShadow: [
           BoxShadow(
-            color: theme.shadowColor.withValues(alpha: .08),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: theme.shadowColor.withValues(alpha: shadowAlpha),
+            blurRadius: active ? 24 : 18,
+            offset: Offset(0, active ? 10 : 8),
           ),
         ],
       ),
-      child: Padding(padding: padding, child: child),
+      child: Padding(padding: widget.padding, child: widget.child),
+    );
+
+    if (!interactive) return card;
+
+    return Semantics(
+      button: true,
+      label: widget.semanticLabel,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() {
+          _hovered = false;
+          _pressed = false;
+        }),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) {
+            HapticFeedback.selectionClick();
+            _setPressed(true);
+          },
+          onTapCancel: () => _setPressed(false),
+          onTapUp: (_) => _setPressed(false),
+          onTap: widget.onTap,
+          child: card,
+        ),
+      ),
     );
   }
 }
@@ -73,6 +135,49 @@ class SectionHeader extends StatelessWidget {
   }
 }
 
+class SoftMessage extends StatelessWidget {
+  const SoftMessage({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return CalmCard(
+      color: theme.colorScheme.secondaryContainer.withValues(alpha: .42),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: theme.colorScheme.onSecondaryContainer),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: theme.textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(
+                  body,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class AnimatedPressable extends StatefulWidget {
   const AnimatedPressable({
     super.key,
@@ -91,6 +196,7 @@ class AnimatedPressable extends StatefulWidget {
 
 class _AnimatedPressableState extends State<AnimatedPressable> {
   bool _pressed = false;
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -98,17 +204,30 @@ class _AnimatedPressableState extends State<AnimatedPressable> {
     return Semantics(
       button: true,
       label: widget.semanticLabel,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapCancel: () => setState(() => _pressed = false),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _pressed && !reduceMotion ? .98 : 1,
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOutCubic,
-          child: widget.child,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() {
+          _hovered = false;
+          _pressed = false;
+        }),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) {
+            HapticFeedback.selectionClick();
+            setState(() => _pressed = true);
+          },
+          onTapCancel: () => setState(() => _pressed = false),
+          onTapUp: (_) => setState(() => _pressed = false),
+          onTap: widget.onTap,
+          child: AnimatedScale(
+            scale: _pressed && !reduceMotion
+                ? .98
+                : (_hovered && !reduceMotion ? 1.01 : 1),
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOutCubic,
+            child: widget.child,
+          ),
         ),
       ),
     );

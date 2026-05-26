@@ -51,6 +51,7 @@ class _SummaryGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GridView(
+      padding: EdgeInsets.zero,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -81,6 +82,18 @@ class _SummaryGrid extends StatelessWidget {
           label: 'Total logs',
           value: analytics.totalLogs.toString(),
           icon: Icons.receipt_long_outlined,
+        ),
+        MetricTile(
+          label: 'Could stay with you',
+          value: analytics.habitsWithCost == 0
+              ? 'Set cost'
+              : '\$${analytics.weekEstimatedCost.toStringAsFixed(2)}',
+          icon: Icons.savings_outlined,
+        ),
+        MetricTile(
+          label: 'Costed trackers',
+          value: analytics.habitsWithCost.toString(),
+          icon: Icons.price_check_rounded,
         ),
       ],
     );
