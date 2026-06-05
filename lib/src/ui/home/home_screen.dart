@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/models.dart';
 import '../../services/analytics_service.dart';
+import '../../services/guidance_service.dart';
 import '../../services/insight_engine.dart';
 import '../../state/app_controller.dart';
 import '../habit/habit_detail_screen.dart';
@@ -105,9 +106,65 @@ class _TodaySection extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         _HeroSummary(state: state, analytics: analytics),
+        if (analytics.habitsWithCost > 0) ...[
+          const SizedBox(height: 12),
+          _MoneyReflectionCards(analytics: analytics),
+        ],
       ],
     );
   }
+}
+
+class _MoneyReflectionCards extends StatelessWidget {
+  const _MoneyReflectionCards({required this.analytics});
+
+  final AnalyticsSnapshot analytics;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 560;
+        return GridView(
+          padding: EdgeInsets.zero,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: isWide ? 4 : 2,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            mainAxisExtent: 132,
+          ),
+          children: [
+            MetricTile(
+              label: 'Today cost',
+              value: _formatMoney(analytics.todayEstimatedCost),
+              icon: Icons.today_outlined,
+            ),
+            MetricTile(
+              label: '7-day total',
+              value: _formatMoney(analytics.sevenDayEstimatedCost),
+              icon: Icons.date_range_outlined,
+            ),
+            MetricTile(
+              label: 'Month-to-date',
+              value: _formatMoney(analytics.monthEstimatedCost),
+              icon: Icons.calendar_month_outlined,
+            ),
+            MetricTile(
+              label: analytics.topCostHabitName ?? 'Top cost tracker',
+              value: analytics.topCostHabitName == null
+                  ? 'None yet'
+                  : _formatMoney(analytics.topCostHabitAmount),
+              icon: Icons.savings_outlined,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';
 }
 
 class _HeroSummary extends StatelessWidget {
@@ -357,13 +414,13 @@ class _TrackersSection extends StatelessWidget {
   }
 }
 
-class _InsightStrip extends StatelessWidget {
+class _InsightStrip extends ConsumerWidget {
   const _InsightStrip({required this.insights});
 
   final List<BehaviorInsight> insights;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     if (insights.isEmpty) {
       return Column(
@@ -387,7 +444,7 @@ class _InsightStrip extends StatelessWidget {
         const SectionHeader(title: 'Observations'),
         const SizedBox(height: 10),
         SizedBox(
-          height: 136,
+          height: 160,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: insights.length,
@@ -397,7 +454,7 @@ class _InsightStrip extends StatelessWidget {
               return SizedBox(
                 width: minOf(312, MediaQuery.sizeOf(context).width * .78),
                 child: CalmCard(
-                  onTap: () => _showInsightDetails(context, insight),
+                  onTap: () => _showInsightDetails(context, ref, insight),
                   semanticLabel: 'Open observation ${insight.title}',
                   color: switch (insight.kind) {
                     InsightKind.progress =>
@@ -410,17 +467,27 @@ class _InsightStrip extends StatelessWidget {
                       theme.colorScheme.tertiaryContainer.withValues(
                         alpha: .48,
                       ),
+                    InsightKind.money =>
+                      theme.colorScheme.surfaceContainerHighest.withValues(
+                        alpha: .58,
+                      ),
                     InsightKind.context => theme.colorScheme.surface,
                   },
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(switch (insight.kind) {
-                        InsightKind.progress => Icons.trending_down_rounded,
-                        InsightKind.pattern => Icons.query_stats_rounded,
-                        InsightKind.privacy => Icons.lock_outline_rounded,
-                        InsightKind.context => Icons.lightbulb_outline_rounded,
-                      }),
+                      Row(
+                        children: [
+                          Icon(_iconForInsight(insight)),
+                          const Spacer(),
+                          if (insight.isPinned)
+                            Icon(
+                              Icons.push_pin_rounded,
+                              size: 17,
+                              color: theme.colorScheme.primary,
+                            ),
+                        ],
+                      ),
                       const SizedBox(height: 10),
                       Text(
                         insight.title,
@@ -432,7 +499,7 @@ class _InsightStrip extends StatelessWidget {
                       Expanded(
                         child: Text(
                           insight.body,
-                          maxLines: 3,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
@@ -440,12 +507,21 @@ class _InsightStrip extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        'Tap for details',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              insight.confidence ?? 'Tap for details',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded, size: 18),
+                        ],
                       ),
                     ],
                   ),
@@ -460,14 +536,13 @@ class _InsightStrip extends StatelessWidget {
 
   double minOf(double a, double b) => a < b ? a : b;
 
-  void _showInsightDetails(BuildContext context, BehaviorInsight insight) {
+  void _showInsightDetails(
+    BuildContext context,
+    WidgetRef ref,
+    BehaviorInsight insight,
+  ) {
     final theme = Theme.of(context);
-    final icon = switch (insight.kind) {
-      InsightKind.progress => Icons.trending_down_rounded,
-      InsightKind.pattern => Icons.query_stats_rounded,
-      InsightKind.privacy => Icons.lock_outline_rounded,
-      InsightKind.context => Icons.lightbulb_outline_rounded,
-    };
+    final icon = _iconForInsight(insight);
 
     showModalBottomSheet<void>(
       context: context,
@@ -495,10 +570,84 @@ class _InsightStrip extends StatelessWidget {
                 Expanded(
                   child: Text(insight.title, style: theme.textTheme.titleLarge),
                 ),
+                IconButton(
+                  tooltip: insight.isPinned ? 'Unpin insight' : 'Pin insight',
+                  onPressed: () async {
+                    await ref
+                        .read(appControllerProvider.notifier)
+                        .toggleInsightPin(insight);
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          insight.isPinned
+                              ? 'Observation unpinned.'
+                              : 'Observation pinned near the top.',
+                        ),
+                      ),
+                    );
+                  },
+                  icon: Icon(
+                    insight.isPinned
+                        ? Icons.push_pin_rounded
+                        : Icons.push_pin_outlined,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Dismiss insight',
+                  onPressed: () async {
+                    await ref
+                        .read(appControllerProvider.notifier)
+                        .dismissInsight(insight);
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Observation hidden until the evidence changes.',
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.visibility_off_outlined),
+                ),
               ],
             ),
             const SizedBox(height: 12),
             Text(insight.body, style: theme.textTheme.bodyLarge),
+            if (insight.confidence != null ||
+                insight.evidenceSummary != null) ...[
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (insight.confidence != null)
+                    Chip(
+                      avatar: const Icon(Icons.insights_rounded, size: 17),
+                      label: Text(insight.confidence!),
+                    ),
+                  if (insight.evidenceSummary != null)
+                    Chip(
+                      avatar: const Icon(Icons.fact_check_outlined, size: 17),
+                      label: Text(insight.evidenceSummary!),
+                    ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 18),
+            _InsightDetailBlock(
+              title: 'Why am I seeing this?',
+              icon: Icons.psychology_alt_outlined,
+              child: Text(insight.why),
+            ),
+            const SizedBox(height: 12),
+            _InsightDetailBlock(
+              title: 'Suggested next action',
+              icon: Icons.next_plan_outlined,
+              child: Text(insight.nextAction),
+            ),
             if (insight.habitsNoticed.isNotEmpty) ...[
               const SizedBox(height: 18),
               Text('Habits noticed', style: theme.textTheme.titleMedium),
@@ -533,6 +682,85 @@ class _InsightStrip extends StatelessWidget {
                   ),
                 ),
             ],
+            if (insight.searchQuery != null) ...[
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: () async {
+                  final opened = await GuidanceService.openHarmReductionSearch(
+                    insight.searchQuery!,
+                  );
+                  if (!context.mounted || opened) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Could not open the browser right now.'),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.travel_explore_rounded),
+                label: const Text('Search harm-reduction info'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _iconForInsight(BehaviorInsight insight) {
+    return switch (insight.kind) {
+      InsightKind.progress => Icons.trending_down_rounded,
+      InsightKind.pattern => Icons.query_stats_rounded,
+      InsightKind.privacy => Icons.lock_outline_rounded,
+      InsightKind.money => Icons.savings_outlined,
+      InsightKind.context => Icons.lightbulb_outline_rounded,
+    };
+  }
+}
+
+class _InsightDetailBlock extends StatelessWidget {
+  const _InsightDetailBlock({
+    required this.title,
+    required this.icon,
+    required this.child,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .4),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: .45),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: theme.colorScheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 6),
+                  DefaultTextStyle.merge(
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    child: child,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

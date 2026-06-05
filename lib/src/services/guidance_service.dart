@@ -295,6 +295,11 @@ class GuidanceService {
     return Uri.https('www.google.com', '/search', {'q': query});
   }
 
+  static Uri harmReductionSearchUri(String topic) {
+    final query = '$topic harm reduction evidence based safer use support';
+    return Uri.https('www.google.com', '/search', {'q': query});
+  }
+
   static Future<bool> openUri(String url) {
     return launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
@@ -305,6 +310,13 @@ class GuidanceService {
   }) {
     return launchUrl(
       searchUriFor(habit: habit, entries: entries),
+      mode: LaunchMode.externalApplication,
+    );
+  }
+
+  static Future<bool> openHarmReductionSearch(String topic) {
+    return launchUrl(
+      harmReductionSearchUri(topic),
       mode: LaunchMode.externalApplication,
     );
   }

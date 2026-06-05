@@ -397,16 +397,72 @@ class AppSettings {
   }
 }
 
+class InsightPreference {
+  const InsightPreference({
+    required this.id,
+    required this.evidenceKey,
+    this.pinned = false,
+    this.dismissed = false,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String evidenceKey;
+  final bool pinned;
+  final bool dismissed;
+  final DateTime updatedAt;
+
+  InsightPreference copyWith({
+    String? id,
+    String? evidenceKey,
+    bool? pinned,
+    bool? dismissed,
+    DateTime? updatedAt,
+  }) {
+    return InsightPreference(
+      id: id ?? this.id,
+      evidenceKey: evidenceKey ?? this.evidenceKey,
+      pinned: pinned ?? this.pinned,
+      dismissed: dismissed ?? this.dismissed,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'evidenceKey': evidenceKey,
+      'pinned': pinned,
+      'dismissed': dismissed,
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+
+  factory InsightPreference.fromMap(Map<String, dynamic> map) {
+    return InsightPreference(
+      id: map['id'] as String? ?? '',
+      evidenceKey: map['evidenceKey'] as String? ?? '',
+      pinned: map['pinned'] as bool? ?? false,
+      dismissed: map['dismissed'] as bool? ?? false,
+      updatedAt:
+          DateTime.tryParse(map['updatedAt'] as String? ?? '') ??
+          DateTime.now(),
+    );
+  }
+}
+
 class AppState {
   const AppState({
     required this.habits,
     required this.entries,
     required this.settings,
+    this.insightPreferences = const [],
   });
 
   final List<Habit> habits;
   final List<UsageEntry> entries;
   final AppSettings settings;
+  final List<InsightPreference> insightPreferences;
 
   List<Habit> get activeHabits =>
       habits.where((habit) => !habit.archived).toList(growable: false);
@@ -422,11 +478,13 @@ class AppState {
     List<Habit>? habits,
     List<UsageEntry>? entries,
     AppSettings? settings,
+    List<InsightPreference>? insightPreferences,
   }) {
     return AppState(
       habits: habits ?? this.habits,
       entries: entries ?? this.entries,
       settings: settings ?? this.settings,
+      insightPreferences: insightPreferences ?? this.insightPreferences,
     );
   }
 
@@ -435,6 +493,9 @@ class AppState {
       'habits': habits.map((habit) => habit.toMap()).toList(),
       'entries': entries.map((entry) => entry.toMap()).toList(),
       'settings': settings.toMap(),
+      'insightPreferences': insightPreferences
+          .map((preference) => preference.toMap())
+          .toList(),
     };
   }
 
@@ -452,6 +513,15 @@ class AppState {
       settings: AppSettings.fromMap(
         Map<String, dynamic>.from(map['settings'] as Map? ?? const {}),
       ),
+      insightPreferences:
+          (map['insightPreferences'] as List<dynamic>? ?? const [])
+              .map(
+                (item) => InsightPreference.fromMap(
+                  Map<String, dynamic>.from(item as Map),
+                ),
+              )
+              .where((preference) => preference.id.isNotEmpty)
+              .toList(),
     ).withDefaultHabits();
   }
 
@@ -461,6 +531,7 @@ class AppState {
       habits: defaultHabitPresets(now),
       entries: const [],
       settings: const AppSettings(),
+      insightPreferences: const [],
     );
   }
 

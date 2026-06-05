@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/habit_library.dart';
 import '../../core/models.dart';
 import '../../state/app_controller.dart';
 import '../habit/habit_detail_screen.dart';
@@ -8,15 +9,42 @@ import '../logging/quick_log_sheet.dart';
 import '../widgets/adaptive_scaffold.dart';
 import '../widgets/habit_visuals.dart';
 
-class TrackerCatalogScreen extends ConsumerWidget {
+class TrackerCatalogScreen extends ConsumerStatefulWidget {
   const TrackerCatalogScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TrackerCatalogScreen> createState() =>
+      _TrackerCatalogScreenState();
+}
+
+class _TrackerCatalogScreenState extends ConsumerState<TrackerCatalogScreen> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() => _query = _searchController.text.trim());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref
         .watch(appControllerProvider)
         .maybeWhen(data: (state) => state, orElse: () => null);
-    final habits = state?.activeHabits ?? const <Habit>[];
+    final allHabits = state?.activeHabits ?? const <Habit>[];
+    final habits = allHabits
+        .where((habit) => HabitLibrary.matchesHabit(habit, _query))
+        .toList(growable: false);
+    final hasSearch = _query.isNotEmpty;
 
     return Scaffold(
       body: CustomScrollView(
@@ -44,6 +72,12 @@ class TrackerCatalogScreen extends ConsumerWidget {
                         'These are starting points. Add a custom tracker whenever your real pattern needs its own name.',
                   ),
                   const SizedBox(height: 14),
+                  _TrackerSearchCard(
+                    controller: _searchController,
+                    hasSearch: hasSearch,
+                    onClear: () => _searchController.clear(),
+                  ),
+                  const SizedBox(height: 14),
                   if (state == null)
                     const EmptyStateCard(
                       icon: Icons.hourglass_empty_rounded,
@@ -52,14 +86,23 @@ class TrackerCatalogScreen extends ConsumerWidget {
                     )
                   else if (habits.isEmpty)
                     EmptyStateCard(
-                      icon: Icons.add_circle_outline_rounded,
-                      title: 'Add your first tracker',
-                      body:
-                          'Pick a starting point or create one that matches your real pattern.',
+                      icon: hasSearch
+                          ? Icons.search_off_rounded
+                          : Icons.add_circle_outline_rounded,
+                      title: hasSearch
+                          ? 'No trackers match'
+                          : 'Add your first tracker',
+                      body: hasSearch
+                          ? 'Try another name, category, or friendly term like weed, cigs, coffee, vape, or betting.'
+                          : 'Pick a starting point or create one that matches your real pattern.',
                       action: FilledButton.icon(
-                        onPressed: () => showAddHabitSheet(context),
-                        icon: const Icon(Icons.add_rounded),
-                        label: const Text('Add tracker'),
+                        onPressed: hasSearch
+                            ? () => _searchController.clear()
+                            : () => showAddHabitSheet(context),
+                        icon: Icon(
+                          hasSearch ? Icons.close_rounded : Icons.add_rounded,
+                        ),
+                        label: Text(hasSearch ? 'Clear search' : 'Add tracker'),
                       ),
                     )
                   else
@@ -112,6 +155,42 @@ class TrackerCatalogScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TrackerSearchCard extends StatelessWidget {
+  const _TrackerSearchCard({
+    required this.controller,
+    required this.hasSearch,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final bool hasSearch;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return CalmCard(
+      padding: const EdgeInsets.all(10),
+      child: TextField(
+        controller: controller,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          isDense: true,
+          prefixIcon: const Icon(Icons.search_rounded),
+          suffixIcon: hasSearch
+              ? IconButton(
+                  tooltip: 'Clear search',
+                  onPressed: onClear,
+                  icon: const Icon(Icons.close_rounded),
+                )
+              : null,
+          hintText: 'Search trackers',
+          helperText: 'Try weed, cigs, coffee, vape, betting',
+        ),
       ),
     );
   }

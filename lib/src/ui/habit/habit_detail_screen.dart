@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/habit_library.dart';
 import '../../core/models.dart';
 import '../../services/guidance_service.dart';
 import '../../state/app_controller.dart';
@@ -207,19 +208,42 @@ class _HabitHero extends ConsumerWidget {
     final controller = TextEditingController(
       text: habit.costPerUnit == null ? '' : habit.costPerUnit!.toString(),
     );
+    final suggestedCost = HabitLibrary.defaultUnitCostFor(habit.category);
     final result = await showDialog<Object?>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Cost for ${habit.name}'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(
-            labelText: 'Cost per ${habit.unit}',
-            prefixText: '\$',
-            hintText: 'Leave blank to remove',
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Cost per ${habit.unit}',
+                prefixText: '\$',
+                hintText: suggestedCost == null
+                    ? 'Leave blank to remove'
+                    : 'Try ${suggestedCost.toStringAsFixed(2)} if useful',
+              ),
+            ),
+            if (suggestedCost != null) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () {
+                  controller.text = suggestedCost.toStringAsFixed(2);
+                },
+                icon: const Icon(Icons.auto_awesome_outlined),
+                label: Text(
+                  'Use local estimate \$${suggestedCost.toStringAsFixed(2)}',
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton(

@@ -1,4 +1,5 @@
 import 'package:adaptive_recovery_tracker/src/core/models.dart';
+import 'package:adaptive_recovery_tracker/src/core/habit_library.dart';
 import 'package:adaptive_recovery_tracker/src/services/analytics_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -114,5 +115,61 @@ void main() {
 
     expect(snapshot.todayEstimatedCost, 8);
     expect(snapshot.totalEstimatedCost, 8);
+  });
+
+  test(
+    'local habit library includes aliases, context chips, and cost defaults',
+    () {
+      final cannabis = Habit(
+        id: 'cannabis',
+        name: 'Cannabis',
+        category: HabitCategory.cannabis,
+        unit: 'uses',
+        colorValue: 0xFF6F8E65,
+        createdAt: DateTime(2026),
+      );
+      final cigarettes = Habit(
+        id: 'cigarettes',
+        name: 'Cigarettes',
+        category: HabitCategory.cigarettes,
+        unit: 'cigarettes',
+        colorValue: 0xFF6A8F7A,
+        createdAt: DateTime(2026),
+      );
+
+      expect(HabitLibrary.matchesHabit(cannabis, 'weed'), isTrue);
+      expect(HabitLibrary.matchesHabit(cigarettes, 'cigs'), isTrue);
+      expect(
+        HabitLibrary.contextChipsFor(HabitCategory.alcohol),
+        containsAll(['Social', 'Alone', 'After work', 'Celebration']),
+      );
+      expect(
+        HabitLibrary.contextChipsFor(HabitCategory.methamphetamine),
+        containsAll(['Redose', 'Sleep loss', 'Work pressure', 'Focus']),
+      );
+      expect(HabitLibrary.defaultUnitCostFor(HabitCategory.alcohol), 8);
+    },
+  );
+
+  test('insight preferences persist locally', () {
+    final state = AppState(
+      habits: const [],
+      entries: const [],
+      settings: const AppSettings(),
+      insightPreferences: [
+        InsightPreference(
+          id: 'time_of_day_evening',
+          evidenceKey: 'evening:4',
+          pinned: true,
+          updatedAt: DateTime(2026),
+        ),
+      ],
+    );
+
+    final restored = AppState.fromMap(state.toMap());
+
+    expect(restored.insightPreferences, hasLength(1));
+    expect(restored.insightPreferences.first.id, 'time_of_day_evening');
+    expect(restored.insightPreferences.first.pinned, isTrue);
   });
 }

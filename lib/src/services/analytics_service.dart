@@ -71,7 +71,12 @@ class AnalyticsSnapshot {
     required this.reductionPercent,
     required this.totalEstimatedCost,
     required this.weekEstimatedCost,
+    required this.sevenDayEstimatedCost,
+    required this.previousWeekEstimatedCost,
     required this.todayEstimatedCost,
+    required this.monthEstimatedCost,
+    required this.topCostHabitAmount,
+    this.topCostHabitName,
     required this.habitsWithCost,
   });
 
@@ -90,7 +95,12 @@ class AnalyticsSnapshot {
   final double reductionPercent;
   final double totalEstimatedCost;
   final double weekEstimatedCost;
+  final double sevenDayEstimatedCost;
+  final double previousWeekEstimatedCost;
   final double todayEstimatedCost;
+  final double monthEstimatedCost;
+  final double topCostHabitAmount;
+  final String? topCostHabitName;
   final int habitsWithCost;
 }
 
@@ -186,10 +196,23 @@ class AnalyticsService {
       _between(scoped, weekStart, now),
       habitsById,
     );
+    final sevenDayEstimatedCost = _costFor(
+      _between(scoped, now.subtract(const Duration(days: 7)), now),
+      habitsById,
+    );
+    final previousWeekEstimatedCost = _costFor(
+      _between(scoped, previousWeekStart, weekStart),
+      habitsById,
+    );
     final todayEstimatedCost = _costFor(
       scoped.where((entry) => _sameDay(entry.loggedAt, today)),
       habitsById,
     );
+    final monthEstimatedCost = _costFor(
+      _between(scoped, DateTime(now.year, now.month), now),
+      habitsById,
+    );
+    final topCost = _topCostHabit(scoped, habitsById);
     final double reductionPercent = previousWeekTotal <= 0
         ? 0
         : ((previousWeekTotal - weekTotal) / previousWeekTotal) * 100;
@@ -219,7 +242,12 @@ class AnalyticsService {
       reductionPercent: reductionPercent,
       totalEstimatedCost: totalEstimatedCost,
       weekEstimatedCost: weekEstimatedCost,
+      sevenDayEstimatedCost: sevenDayEstimatedCost,
+      previousWeekEstimatedCost: previousWeekEstimatedCost,
       todayEstimatedCost: todayEstimatedCost,
+      monthEstimatedCost: monthEstimatedCost,
+      topCostHabitName: topCost?.name,
+      topCostHabitAmount: topCost?.amount ?? 0,
       habitsWithCost: state.activeHabits
           .where((habit) => (habit.costPerUnit ?? 0) > 0)
           .length,
@@ -273,6 +301,26 @@ class AnalyticsService {
       if (cost == null || cost <= 0) return total;
       return total + cost;
     });
+  }
+
+  static ({String name, double amount})? _topCostHabit(
+    Iterable<UsageEntry> entries,
+    Map<String, Habit> habitsById,
+  ) {
+    final totals = <String, double>{};
+    for (final entry in entries) {
+      final habit = habitsById[entry.habitId];
+      if (habit == null) continue;
+      final cost = entry.estimatedCostFor(habit);
+      if (cost == null || cost <= 0) continue;
+      totals.update(habit.id, (value) => value + cost, ifAbsent: () => cost);
+    }
+    if (totals.isEmpty) return null;
+
+    final top = totals.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    final habit = habitsById[top.key];
+    if (habit == null) return null;
+    return (name: habit.name, amount: top.value);
   }
 
   static int _countRecentTargetDays(AppState state, List<DailyUsage> daily) {

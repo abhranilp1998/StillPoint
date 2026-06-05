@@ -2,22 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/habit_library.dart';
 import '../../core/models.dart';
 import '../../core/quantity_math.dart';
 import '../../state/app_controller.dart';
 import '../habit/entry_editor_sheet.dart';
 import '../widgets/habit_visuals.dart';
-
-const _triggerOptions = [
-  'Stress',
-  'Social',
-  'Sleep',
-  'Boredom',
-  'Work',
-  'Evening',
-  'Pain',
-  'Celebration',
-];
 
 Future<void> showQuickLogSheet(BuildContext context, {Habit? initialHabit}) {
   HapticFeedback.selectionClick();
@@ -155,6 +145,8 @@ class _QuickLogSheetState extends ConsumerState<QuickLogSheet> {
                       onSetUnitCost: _setUnitCost,
                     ),
                     const SizedBox(height: 12),
+                    _LoggingHint(habit: _habit!),
+                    const SizedBox(height: 8),
                     TextButton.icon(
                       onPressed: () =>
                           setState(() => _showContext = !_showContext),
@@ -174,6 +166,7 @@ class _QuickLogSheetState extends ConsumerState<QuickLogSheet> {
                         craving: _craving,
                         stress: _stress,
                         trigger: _trigger,
+                        habit: _habit!,
                         noteController: _noteController,
                         onMood: (value) => setState(() => _mood = value),
                         onCraving: (value) => setState(() => _craving = value),
@@ -354,22 +347,45 @@ Future<double?> _askForUnitCost(BuildContext context, Habit habit) async {
   final controller = TextEditingController(
     text: habit.costPerUnit == null ? '' : habit.costPerUnit!.toString(),
   );
+  final suggestedCost = HabitLibrary.defaultUnitCostFor(habit.category);
   String? error;
   final result = await showDialog<double?>(
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setDialogState) => AlertDialog(
         title: Text('Cost for ${habit.name}'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(
-            labelText: 'Cost per ${habit.unit}',
-            prefixText: '\$',
-            hintText: 'Leave blank to remove',
-            errorText: error,
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Cost per ${habit.unit}',
+                prefixText: '\$',
+                hintText: suggestedCost == null
+                    ? 'Leave blank to remove'
+                    : 'Try ${suggestedCost.toStringAsFixed(2)} if useful',
+                errorText: error,
+              ),
+            ),
+            if (suggestedCost != null) ...[
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: () {
+                  controller.text = suggestedCost.toStringAsFixed(2);
+                },
+                icon: const Icon(Icons.auto_awesome_outlined),
+                label: Text(
+                  'Use local estimate \$${suggestedCost.toStringAsFixed(2)}',
+                ),
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton(
@@ -452,6 +468,48 @@ class _LogCostPreview extends StatelessWidget {
   }
 }
 
+class _LoggingHint extends StatelessWidget {
+  const _LoggingHint({required this.habit});
+
+  final Habit habit;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.tertiaryContainer.withValues(alpha: .24),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: .45),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.health_and_safety_outlined,
+              color: theme.colorScheme.primary,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                HabitLibrary.loggingHintFor(habit.category),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 void _showPostLogSnackBar(BuildContext context, UsageEntry entry, Habit habit) {
   final cost = entry.estimatedCostFor(habit);
   ScaffoldMessenger.of(context).showSnackBar(
@@ -480,7 +538,7 @@ class _PostLogSnackContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final triggers = _triggerOptions.take(4);
+    final triggers = HabitLibrary.contextChipsFor(habit.category).take(4);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -673,6 +731,7 @@ class _ContextFields extends StatelessWidget {
     required this.craving,
     required this.stress,
     required this.trigger,
+    required this.habit,
     required this.noteController,
     required this.onMood,
     required this.onCraving,
@@ -684,6 +743,7 @@ class _ContextFields extends StatelessWidget {
   final int? craving;
   final int? stress;
   final String? trigger;
+  final Habit habit;
   final TextEditingController noteController;
   final ValueChanged<int?> onMood;
   final ValueChanged<int?> onCraving;
@@ -716,7 +776,7 @@ class _ContextFields extends StatelessWidget {
           onChanged: onStress,
         ),
         const SizedBox(height: 12),
-        _TriggerChips(trigger: trigger, onChanged: onTrigger),
+        _TriggerChips(habit: habit, trigger: trigger, onChanged: onTrigger),
         const SizedBox(height: 12),
         TextField(
           controller: noteController,
@@ -772,8 +832,13 @@ class _ScaleChips extends StatelessWidget {
 }
 
 class _TriggerChips extends StatelessWidget {
-  const _TriggerChips({required this.trigger, required this.onChanged});
+  const _TriggerChips({
+    required this.habit,
+    required this.trigger,
+    required this.onChanged,
+  });
 
+  final Habit habit;
   final String? trigger;
   final ValueChanged<String?> onChanged;
 
@@ -788,7 +853,7 @@ class _TriggerChips extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final item in _triggerOptions)
+            for (final item in HabitLibrary.contextChipsFor(habit.category))
               ChoiceChip(
                 label: Text(item),
                 selected: trigger == item,
@@ -825,6 +890,7 @@ class _AddHabitSheetState extends ConsumerState<AddHabitSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final suggestedCost = HabitLibrary.defaultUnitCostFor(_category);
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 16),
       child: SingleChildScrollView(
@@ -864,7 +930,9 @@ class _AddHabitSheetState extends ConsumerState<AddHabitSheet> {
                 if (value == null) return;
                 setState(() {
                   _category = value;
-                  _unitController.text = value.defaultUnit;
+                  _unitController.text = HabitLibrary.profileFor(
+                    value,
+                  ).defaultUnit;
                 });
               },
             ),
@@ -885,6 +953,21 @@ class _AddHabitSheetState extends ConsumerState<AddHabitSheet> {
                 hintText: 'Optional',
               ),
             ),
+            if (suggestedCost != null) ...[
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () {
+                    _costController.text = suggestedCost.toStringAsFixed(2);
+                  },
+                  icon: const Icon(Icons.auto_awesome_outlined),
+                  label: Text(
+                    'Use local estimate \$${suggestedCost.toStringAsFixed(2)}',
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: _save,

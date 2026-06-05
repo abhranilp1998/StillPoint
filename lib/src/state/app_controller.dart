@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../core/habit_library.dart';
 import '../core/models.dart';
 import '../data/habit_repository.dart';
 import '../services/analytics_service.dart';
@@ -22,7 +23,11 @@ final insightsProvider = Provider<List<BehaviorInsight>>((ref) {
       .watch(appControllerProvider)
       .maybeWhen(data: (state) => state, orElse: () => null);
   final analytics = ref.watch(analyticsProvider);
-  return InsightEngine.generate(appState ?? AppState.initial(), analytics);
+  final state = appState ?? AppState.initial();
+  return InsightEngine.applyPreferences(
+    InsightEngine.generate(state, analytics),
+    state.insightPreferences,
+  );
 });
 
 class AppController extends AsyncNotifier<AppState> {
@@ -124,7 +129,9 @@ class AppController extends AsyncNotifier<AppState> {
       id: _uuid.v4(),
       name: name.trim(),
       category: category,
-      unit: unit.trim().isEmpty ? category.defaultUnit : unit.trim(),
+      unit: unit.trim().isEmpty
+          ? HabitLibrary.profileFor(category).defaultUnit
+          : unit.trim(),
       colorValue: palette[current.habits.length % palette.length],
       createdAt: DateTime.now(),
       costPerUnit: costPerUnit == null || costPerUnit <= 0 ? null : costPerUnit,
@@ -147,9 +154,69 @@ class AppController extends AsyncNotifier<AppState> {
     await _repository.save(next);
   }
 
+  Future<void> toggleInsightPin(BehaviorInsight insight) async {
+    final current = await _current();
+    final existing = _preferenceFor(current, insight.id);
+    final nextPreference =
+        (existing ??
+                InsightPreference(
+                  id: insight.id,
+                  evidenceKey: insight.evidenceKey,
+                  updatedAt: DateTime.now(),
+                ))
+            .copyWith(
+              evidenceKey: insight.evidenceKey,
+              pinned: !(existing?.pinned ?? false),
+              dismissed: false,
+              updatedAt: DateTime.now(),
+            );
+    await _saveInsightPreference(current, nextPreference);
+  }
+
+  Future<void> dismissInsight(BehaviorInsight insight) async {
+    final current = await _current();
+    final existing = _preferenceFor(current, insight.id);
+    final nextPreference =
+        (existing ??
+                InsightPreference(
+                  id: insight.id,
+                  evidenceKey: insight.evidenceKey,
+                  updatedAt: DateTime.now(),
+                ))
+            .copyWith(
+              evidenceKey: insight.evidenceKey,
+              pinned: false,
+              dismissed: true,
+              updatedAt: DateTime.now(),
+            );
+    await _saveInsightPreference(current, nextPreference);
+  }
+
   Future<void> updateSettings(AppSettings settings) async {
     final current = await _current();
     final next = current.copyWith(settings: settings);
+    state = AsyncData(next);
+    await _repository.save(next);
+  }
+
+  InsightPreference? _preferenceFor(AppState state, String insightId) {
+    for (final preference in state.insightPreferences) {
+      if (preference.id == insightId) return preference;
+    }
+    return null;
+  }
+
+  Future<void> _saveInsightPreference(
+    AppState current,
+    InsightPreference preference,
+  ) async {
+    final next = current.copyWith(
+      insightPreferences: [
+        for (final existing in current.insightPreferences)
+          if (existing.id != preference.id) existing,
+        preference,
+      ],
+    );
     state = AsyncData(next);
     await _repository.save(next);
   }
