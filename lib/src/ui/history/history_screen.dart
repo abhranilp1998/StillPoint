@@ -466,6 +466,7 @@ class _HistoryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final date = DateFormat('MMM d, h:mm a').format(entry.loggedAt);
+    final cost = entry.estimatedCostFor(habit);
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: onEdit,
@@ -495,9 +496,22 @@ class _HistoryRow extends StatelessWidget {
                           style: theme.textTheme.titleMedium,
                         ),
                       ),
-                      Text(
-                        '${entry.quantity.toStringAsFixed(entry.quantity == entry.quantity.roundToDouble() ? 0 : 1)} ${habit.unit}',
-                        style: theme.textTheme.labelLarge,
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${entry.quantity.toStringAsFixed(entry.quantity == entry.quantity.roundToDouble() ? 0 : 1)} ${habit.unit}',
+                            style: theme.textTheme.labelLarge,
+                          ),
+                          if (cost != null)
+                            Text(
+                              _formatMoney(cost),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -552,3 +566,5 @@ class _HistoryRow extends StatelessWidget {
     );
   }
 }
+
+String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';

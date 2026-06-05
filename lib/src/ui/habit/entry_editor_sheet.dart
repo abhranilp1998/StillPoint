@@ -18,7 +18,7 @@ Future<void> showEntryEditorSheet(
     showDragHandle: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
     ),
     builder: (_) => EntryEditorSheet(entry: entry, habit: habit),
   );
@@ -65,6 +65,8 @@ class _EntryEditorSheetState extends ConsumerState<EntryEditorSheet> {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     final theme = Theme.of(context);
+    final unitCost = _effectiveUnitCost;
+    final cost = unitCost == null ? null : _quantity * unitCost;
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOutCubic,
@@ -127,6 +129,12 @@ class _EntryEditorSheetState extends ConsumerState<EntryEditorSheet> {
                   icon: const Icon(Icons.add_rounded),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+            _EntryCostPreview(
+              cost: cost,
+              unitCost: unitCost,
+              habit: widget.habit,
             ),
             const SizedBox(height: 14),
             _ScaleChips(
@@ -230,9 +238,16 @@ class _EntryEditorSheetState extends ConsumerState<EntryEditorSheet> {
             note: _noteController.text.trim().isEmpty
                 ? null
                 : _noteController.text.trim(),
+            unitCost: _effectiveUnitCost,
           ),
         );
     if (mounted) Navigator.pop(context);
+  }
+
+  double? get _effectiveUnitCost {
+    final cost = widget.entry.unitCost ?? widget.habit.costPerUnit;
+    if (cost == null || cost <= 0) return null;
+    return cost;
   }
 
   Future<void> _delete() async {
@@ -258,6 +273,53 @@ class _EntryEditorSheetState extends ConsumerState<EntryEditorSheet> {
     if (mounted) Navigator.pop(context);
   }
 }
+
+class _EntryCostPreview extends StatelessWidget {
+  const _EntryCostPreview({
+    required this.cost,
+    required this.unitCost,
+    required this.habit,
+  });
+
+  final double? cost;
+  final double? unitCost;
+  final Habit habit;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .36),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: .55),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.savings_outlined, color: theme.colorScheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                cost == null
+                    ? 'No cost attached to this log.'
+                    : '${_formatMoney(cost!)} for this log · ${_formatMoney(unitCost!)} per ${habit.unit}.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';
 
 class _ScaleChips extends StatelessWidget {
   const _ScaleChips({

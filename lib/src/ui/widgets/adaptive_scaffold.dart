@@ -73,7 +73,7 @@ class _CalmCardState extends State<CalmCard> {
       transformAlignment: Alignment.center,
       decoration: BoxDecoration(
         color: widget.color ?? theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: active
               ? theme.colorScheme.primary.withValues(alpha: .44)

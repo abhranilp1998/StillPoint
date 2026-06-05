@@ -81,4 +81,38 @@ void main() {
     expect(snapshot.weekEstimatedCost, 9);
     expect(snapshot.habitsWithCost, 1);
   });
+
+  test('entry unit cost persists and analytics prefers log snapshot', () {
+    final habit = Habit(
+      id: 'coffee',
+      name: 'Coffee',
+      category: HabitCategory.caffeine,
+      unit: 'cups',
+      colorValue: 0xFFB88A44,
+      createdAt: DateTime(2026),
+      costPerUnit: 10,
+    );
+    final entry = UsageEntry(
+      id: 'entry',
+      habitId: habit.id,
+      loggedAt: DateTime.now(),
+      quantity: 2,
+      unitCost: 4,
+    );
+    final restored = UsageEntry.fromMap(entry.toMap());
+
+    expect(restored.unitCost, 4);
+    expect(restored.estimatedCostFor(habit), 8);
+
+    final snapshot = AnalyticsService.buildSnapshot(
+      AppState(
+        habits: [habit],
+        entries: [restored],
+        settings: const AppSettings(),
+      ),
+    );
+
+    expect(snapshot.todayEstimatedCost, 8);
+    expect(snapshot.totalEstimatedCost, 8);
+  });
 }

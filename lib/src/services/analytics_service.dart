@@ -268,9 +268,10 @@ class AnalyticsService {
     Map<String, Habit> habitsById,
   ) {
     return entries.fold<double>(0, (total, entry) {
-      final cost = habitsById[entry.habitId]?.costPerUnit;
+      final habit = habitsById[entry.habitId];
+      final cost = habit == null ? null : entry.estimatedCostFor(habit);
       if (cost == null || cost <= 0) return total;
-      return total + entry.quantity * cost;
+      return total + cost;
     });
   }
 

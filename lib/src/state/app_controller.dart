@@ -41,7 +41,7 @@ class AppController extends AsyncNotifier<AppState> {
         await future;
   }
 
-  Future<void> logEntry({
+  Future<UsageEntry> logEntry({
     required Habit habit,
     required double quantity,
     int? mood,
@@ -62,11 +62,15 @@ class AppController extends AsyncNotifier<AppState> {
       stress: stress,
       trigger: trigger?.trim().isEmpty ?? true ? null : trigger!.trim(),
       note: note?.trim().isEmpty ?? true ? null : note!.trim(),
+      unitCost: habit.costPerUnit == null || habit.costPerUnit! <= 0
+          ? null
+          : habit.costPerUnit,
     );
 
     final next = current.copyWith(entries: [...current.entries, entry]);
     state = AsyncData(next);
     await _repository.save(next);
+    return entry;
   }
 
   Future<void> repeatLastEntry() async {

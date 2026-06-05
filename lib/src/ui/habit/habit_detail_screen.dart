@@ -481,6 +481,8 @@ class _RecentLogs extends StatelessWidget {
                     DateFormat('MMM d, h:mm a').format(entry.loggedAt),
                     if (entry.trigger != null) entry.trigger!,
                     if (entry.mood != null) moodLabel(entry.mood),
+                    if (entry.estimatedCostFor(habit) != null)
+                      _formatMoney(entry.estimatedCostFor(habit)!),
                   ].join(' • '),
                 ),
                 trailing: const Icon(Icons.edit_outlined),
@@ -492,3 +494,5 @@ class _RecentLogs extends StatelessWidget {
     );
   }
 }
+
+String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';

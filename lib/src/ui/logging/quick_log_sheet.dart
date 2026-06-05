@@ -5,7 +5,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models.dart';
 import '../../core/quantity_math.dart';
 import '../../state/app_controller.dart';
+import '../habit/entry_editor_sheet.dart';
 import '../widgets/habit_visuals.dart';
+
+const _triggerOptions = [
+  'Stress',
+  'Social',
+  'Sleep',
+  'Boredom',
+  'Work',
+  'Evening',
+  'Pain',
+  'Celebration',
+];
 
 Future<void> showQuickLogSheet(BuildContext context, {Habit? initialHabit}) {
   HapticFeedback.selectionClick();
@@ -16,7 +28,7 @@ Future<void> showQuickLogSheet(BuildContext context, {Habit? initialHabit}) {
     showDragHandle: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
     ),
     builder: (_) =>
         QuickLogSheet(initialHabit: initialHabit, launcherContext: context),
@@ -31,7 +43,7 @@ Future<void> showAddHabitSheet(BuildContext context) {
     showDragHandle: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
     ),
     builder: (_) => const AddHabitSheet(),
   );
@@ -56,6 +68,8 @@ class _QuickLogSheetState extends ConsumerState<QuickLogSheet> {
   String? _trigger;
   bool _showContext = false;
   bool _saving = false;
+  bool _quantityTouched = false;
+  String? _seededHabitId;
 
   final _noteController = TextEditingController();
 
@@ -78,8 +92,10 @@ class _QuickLogSheetState extends ConsumerState<QuickLogSheet> {
         .watch(appControllerProvider)
         .maybeWhen(data: (state) => state, orElse: () => null);
     final habits = state?.activeHabits ?? const <Habit>[];
+    final entries = state?.entries ?? const <UsageEntry>[];
     final theme = Theme.of(context);
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    _seedQuantityFromHistory(entries);
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
@@ -93,10 +109,7 @@ class _QuickLogSheetState extends ConsumerState<QuickLogSheet> {
                   habits: habits,
                   onHabitSelected: (habit) {
                     HapticFeedback.selectionClick();
-                    setState(() {
-                      _habit = habit;
-                      _quantity = defaultQuantityFor(habit);
-                    });
+                    _selectHabit(habit, entries);
                   },
                   onAddCustom: () {
                     final launcherContext = widget.launcherContext;
@@ -134,7 +147,12 @@ class _QuickLogSheetState extends ConsumerState<QuickLogSheet> {
                     _QuantityPicker(
                       habit: _habit!,
                       quantity: _quantity,
-                      onChanged: (value) => setState(() => _quantity = value),
+                      recentQuantity: _recentQuantityFor(_habit!, entries),
+                      onChanged: (value) => setState(() {
+                        _quantity = value;
+                        _quantityTouched = true;
+                      }),
+                      onSetUnitCost: _setUnitCost,
                     ),
                     const SizedBox(height: 12),
                     TextButton.icon(
@@ -189,7 +207,7 @@ class _QuickLogSheetState extends ConsumerState<QuickLogSheet> {
   Future<void> _save() async {
     if (_habit == null) return;
     setState(() => _saving = true);
-    await ref
+    final entry = await ref
         .read(appControllerProvider.notifier)
         .logEntry(
           habit: _habit!,
@@ -202,13 +220,306 @@ class _QuickLogSheetState extends ConsumerState<QuickLogSheet> {
         );
     HapticFeedback.lightImpact();
     if (mounted) {
+      final habit = _habit!;
+      final launcherContext = widget.launcherContext;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Logged. Your pattern stays visible.')),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final snackContext = launcherContext?.mounted ?? false
+            ? launcherContext!
+            : null;
+        if (snackContext == null) return;
+        _showPostLogSnackBar(snackContext, entry, habit);
+      });
     }
   }
+
+  void _selectHabit(Habit habit, List<UsageEntry> entries) {
+    setState(() {
+      _habit = habit;
+      _quantity =
+          _recentQuantityFor(habit, entries) ?? defaultQuantityFor(habit);
+      _quantityTouched = false;
+      _seededHabitId = habit.id;
+    });
+  }
+
+  void _seedQuantityFromHistory(List<UsageEntry> entries) {
+    final habit = _habit;
+    if (habit == null ||
+        _quantityTouched ||
+        _seededHabitId == habit.id ||
+        entries.isEmpty) {
+      return;
+    }
+
+    final quantity = _recentQuantityFor(habit, entries);
+    if (quantity == null) {
+      _seededHabitId = habit.id;
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _habit?.id != habit.id || _quantityTouched) return;
+      setState(() {
+        _quantity = quantity;
+        _seededHabitId = habit.id;
+      });
+    });
+  }
+
+  double? _recentQuantityFor(Habit habit, List<UsageEntry> entries) {
+    return latestEntryForHabit(habit, entries)?.quantity;
+  }
+
+  Future<void> _setUnitCost() async {
+    final habit = _habit;
+    if (habit == null) return;
+    final cost = await _askForUnitCost(context, habit);
+    if (cost == null) return;
+    final nextHabit = cost <= 0
+        ? habit.copyWith(clearCostPerUnit: true)
+        : habit.copyWith(costPerUnit: cost);
+    await ref.read(appControllerProvider.notifier).updateHabit(nextHabit);
+    if (!mounted) return;
+    setState(() => _habit = nextHabit);
+  }
 }
+
+class _QuantityPreset {
+  const _QuantityPreset(this.label, this.value);
+
+  final String label;
+  final double value;
+}
+
+List<_QuantityPreset> _loggingPresetsFor(Habit habit, double? recentQuantity) {
+  final base = quantityPresetsFor(habit);
+  final usual = base[((base.length - 1) / 2).floor()];
+  final items = [
+    _QuantityPreset('Small', base.first),
+    if (recentQuantity != null) _QuantityPreset('Last used', recentQuantity),
+    _QuantityPreset('Usual', usual),
+    _QuantityPreset('Heavy', base.last),
+  ];
+  final seen = <double>{};
+  return [
+    for (final item in items)
+      if (seen.add(normalizeQuantity(item.value))) item,
+  ];
+}
+
+Future<double?> _askForCustomQuantity(
+  BuildContext context,
+  Habit habit,
+  double current,
+) async {
+  final controller = TextEditingController(text: formatQuantity(current));
+  String? error;
+  final result = await showDialog<double>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Text('Custom quantity'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(labelText: habit.unit, errorText: error),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = double.tryParse(controller.text.trim());
+              if (value == null || value < 0) {
+                setDialogState(() => error = 'Use a number 0 or higher.');
+                return;
+              }
+              Navigator.pop(context, normalizeQuantity(value));
+            },
+            child: const Text('Use'),
+          ),
+        ],
+      ),
+    ),
+  );
+  controller.dispose();
+  return result;
+}
+
+Future<double?> _askForUnitCost(BuildContext context, Habit habit) async {
+  final controller = TextEditingController(
+    text: habit.costPerUnit == null ? '' : habit.costPerUnit!.toString(),
+  );
+  String? error;
+  final result = await showDialog<double?>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: Text('Cost for ${habit.name}'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            labelText: 'Cost per ${habit.unit}',
+            prefixText: '\$',
+            hintText: 'Leave blank to remove',
+            errorText: error,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 0),
+            child: const Text('Clear'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (controller.text.trim().isEmpty) {
+                Navigator.pop(context, 0);
+                return;
+              }
+              final value = double.tryParse(controller.text.trim());
+              if (value == null || value < 0) {
+                setDialogState(() => error = 'Use a number 0 or higher.');
+                return;
+              }
+              Navigator.pop(context, value);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    ),
+  );
+  controller.dispose();
+  return result;
+}
+
+class _LogCostPreview extends StatelessWidget {
+  const _LogCostPreview({
+    required this.habit,
+    required this.cost,
+    required this.onSetUnitCost,
+  });
+
+  final Habit habit;
+  final double? cost;
+  final VoidCallback onSetUnitCost;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .38),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: .55),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.savings_outlined, color: theme.colorScheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                cost == null
+                    ? 'Add a unit cost if money is part of the pattern.'
+                    : 'This log adds about ${_formatMoney(cost!)}.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: onSetUnitCost,
+              child: Text(cost == null ? 'Set cost' : 'Edit'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void _showPostLogSnackBar(BuildContext context, UsageEntry entry, Habit habit) {
+  final cost = entry.estimatedCostFor(habit);
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      duration: const Duration(seconds: 9),
+      content: _PostLogSnackContent(entry: entry, habit: habit, cost: cost),
+      action: SnackBarAction(
+        label: 'Edit',
+        onPressed: () =>
+            showEntryEditorSheet(context, entry: entry, habit: habit),
+      ),
+    ),
+  );
+}
+
+class _PostLogSnackContent extends ConsumerWidget {
+  const _PostLogSnackContent({
+    required this.entry,
+    required this.habit,
+    required this.cost,
+  });
+
+  final UsageEntry entry;
+  final Habit habit;
+  final double? cost;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final triggers = _triggerOptions.take(4);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          cost == null
+              ? 'Logged ${habit.name}.'
+              : 'Logged ${habit.name} · ${_formatMoney(cost!)}.',
+        ),
+        const SizedBox(height: 8),
+        const Text('What triggered this?'),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          children: [
+            for (final trigger in triggers)
+              ActionChip(
+                label: Text(trigger),
+                onPressed: () async {
+                  await ref
+                      .read(appControllerProvider.notifier)
+                      .updateEntry(entry.copyWith(trigger: trigger));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Added "$trigger" context.')),
+                    );
+                  }
+                },
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';
 
 class _HabitPicker extends StatelessWidget {
   const _HabitPicker({
@@ -270,17 +581,27 @@ class _QuantityPicker extends StatelessWidget {
   const _QuantityPicker({
     required this.habit,
     required this.quantity,
+    required this.recentQuantity,
     required this.onChanged,
+    required this.onSetUnitCost,
   });
 
   final Habit habit;
   final double quantity;
+  final double? recentQuantity;
   final ValueChanged<double> onChanged;
+  final VoidCallback onSetUnitCost;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final presets = quantityPresetsFor(habit);
+    final presets = _loggingPresetsFor(habit, recentQuantity);
+    final matchedPreset = presets.any(
+      (preset) => sameQuantity(quantity, preset.value),
+    );
+    final cost = habit.costPerUnit == null || habit.costPerUnit! <= 0
+        ? null
+        : quantity * habit.costPerUnit!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,12 +612,25 @@ class _QuantityPicker extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final value in presets)
+            for (final preset in presets)
               ChoiceChip(
-                selected: sameQuantity(quantity, value),
-                label: Text(formatQuantity(value)),
-                onSelected: (_) => onChanged(value),
+                selected: sameQuantity(quantity, preset.value),
+                label: Text('${preset.label} ${formatQuantity(preset.value)}'),
+                onSelected: (_) => onChanged(preset.value),
               ),
+            ChoiceChip(
+              selected: !matchedPreset,
+              avatar: const Icon(Icons.tune_rounded, size: 16),
+              label: const Text('Custom'),
+              onSelected: (_) async {
+                final value = await _askForCustomQuantity(
+                  context,
+                  habit,
+                  quantity,
+                );
+                if (value != null) onChanged(value);
+              },
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -326,6 +660,8 @@ class _QuantityPicker extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        _LogCostPreview(habit: habit, cost: cost, onSetUnitCost: onSetUnitCost),
       ],
     );
   }
@@ -443,16 +779,6 @@ class _TriggerChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const triggers = [
-      'Stress',
-      'Social',
-      'Sleep',
-      'Boredom',
-      'Work',
-      'Evening',
-      'Pain',
-      'Celebration',
-    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -462,7 +788,7 @@ class _TriggerChips extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final item in triggers)
+            for (final item in _triggerOptions)
               ChoiceChip(
                 label: Text(item),
                 selected: trigger == item,

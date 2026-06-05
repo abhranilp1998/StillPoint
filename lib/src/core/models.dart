@@ -215,6 +215,7 @@ class UsageEntry {
     this.stress,
     this.trigger,
     this.note,
+    this.unitCost,
   });
 
   final String id;
@@ -226,6 +227,13 @@ class UsageEntry {
   final int? stress;
   final String? trigger;
   final String? note;
+  final double? unitCost;
+
+  double? estimatedCostFor(Habit habit) {
+    final cost = unitCost ?? habit.costPerUnit;
+    if (cost == null || cost <= 0) return null;
+    return quantity * cost;
+  }
 
   UsageEntry copyWith({
     String? id,
@@ -237,6 +245,8 @@ class UsageEntry {
     int? stress,
     String? trigger,
     String? note,
+    double? unitCost,
+    bool clearUnitCost = false,
   }) {
     return UsageEntry(
       id: id ?? this.id,
@@ -248,6 +258,7 @@ class UsageEntry {
       stress: stress ?? this.stress,
       trigger: trigger ?? this.trigger,
       note: note ?? this.note,
+      unitCost: clearUnitCost ? null : unitCost ?? this.unitCost,
     );
   }
 
@@ -262,6 +273,7 @@ class UsageEntry {
       'stress': stress,
       'trigger': trigger,
       'note': note,
+      'unitCost': unitCost,
     };
   }
 
@@ -277,6 +289,7 @@ class UsageEntry {
       stress: (map['stress'] as num?)?.toInt(),
       trigger: map['trigger'] as String?,
       note: map['note'] as String?,
+      unitCost: (map['unitCost'] as num?)?.toDouble(),
     );
   }
 }
