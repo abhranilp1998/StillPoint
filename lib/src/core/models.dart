@@ -295,6 +295,7 @@ class AppSettings {
     this.quietStartHour = 22,
     this.quietEndHour = 8,
     this.reduceMotion = false,
+    this.privacyConsentCompleted = false,
   });
 
   final bool useSystemTheme;
@@ -309,6 +310,7 @@ class AppSettings {
   final int quietStartHour;
   final int quietEndHour;
   final bool reduceMotion;
+  final bool privacyConsentCompleted;
 
   AppSettings copyWith({
     bool? useSystemTheme,
@@ -324,6 +326,7 @@ class AppSettings {
     int? quietStartHour,
     int? quietEndHour,
     bool? reduceMotion,
+    bool? privacyConsentCompleted,
   }) {
     return AppSettings(
       useSystemTheme: useSystemTheme ?? this.useSystemTheme,
@@ -338,6 +341,8 @@ class AppSettings {
       quietStartHour: quietStartHour ?? this.quietStartHour,
       quietEndHour: quietEndHour ?? this.quietEndHour,
       reduceMotion: reduceMotion ?? this.reduceMotion,
+      privacyConsentCompleted:
+          privacyConsentCompleted ?? this.privacyConsentCompleted,
     );
   }
 
@@ -355,6 +360,7 @@ class AppSettings {
       'quietStartHour': quietStartHour,
       'quietEndHour': quietEndHour,
       'reduceMotion': reduceMotion,
+      'privacyConsentCompleted': privacyConsentCompleted,
     };
   }
 
@@ -372,6 +378,8 @@ class AppSettings {
       quietStartHour: (map['quietStartHour'] as num?)?.toInt() ?? 22,
       quietEndHour: (map['quietEndHour'] as num?)?.toInt() ?? 8,
       reduceMotion: map['reduceMotion'] as bool? ?? false,
+      privacyConsentCompleted:
+          map['privacyConsentCompleted'] as bool? ?? map.isNotEmpty,
     );
   }
 }

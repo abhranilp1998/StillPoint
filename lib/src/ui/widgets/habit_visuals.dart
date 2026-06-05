@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/models.dart';
 import 'adaptive_scaffold.dart';
@@ -91,33 +92,48 @@ class TrackerTile extends StatelessWidget {
     required this.habit,
     required this.onTap,
     this.subtitle,
+    this.lastEntry,
   });
 
   final Habit habit;
   final VoidCallback onTap;
   final String? subtitle;
+  final UsageEntry? lastEntry;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = Color(habit.colorValue);
+    final logged = lastEntry;
     return CalmCard(
       onTap: onTap,
       semanticLabel: 'Open ${habit.name}',
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.all(14),
       color: color.withValues(
         alpha: theme.brightness == Brightness.dark ? .18 : .08,
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(habitIcon(habit.category), color: color, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+          Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: Icon(
+                    habitIcon(habit.category),
+                    color: color,
+                    size: 22,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
                   habit.name,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
@@ -125,18 +141,124 @@ class TrackerTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle ?? habit.reductionMode.label,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            logged == null
+                ? (subtitle ?? habit.reductionMode.label)
+                : _formatQuantity(logged.quantity, habit.unit),
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: logged == null ? theme.colorScheme.onSurface : color,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Icon(
+                logged == null
+                    ? Icons.radio_button_unchecked_rounded
+                    : Icons.schedule_rounded,
+                size: 15,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  logged == null
+                      ? 'No logs yet'
+                      : 'Last ${_formatLastLogged(logged.loggedAt)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatQuantity(double value, String unit) {
+    final quantity = value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toStringAsFixed(1);
+    return '$quantity $unit';
+  }
+
+  String _formatLastLogged(DateTime loggedAt) {
+    final now = DateTime.now();
+    final diff = now.difference(loggedAt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inHours < 24 && loggedAt.day == now.day) {
+      return DateFormat('h:mm a').format(loggedAt);
+    }
+    final yesterday = DateTime(now.year, now.month, now.day - 1);
+    if (loggedAt.year == yesterday.year &&
+        loggedAt.month == yesterday.month &&
+        loggedAt.day == yesterday.day) {
+      return 'yesterday';
+    }
+    if (diff.inDays < 7) return DateFormat.E().format(loggedAt);
+    return DateFormat.MMMd().format(loggedAt);
+  }
+}
+
+UsageEntry? latestEntryForHabit(Habit habit, List<UsageEntry> entries) {
+  UsageEntry? latest;
+  for (final entry in entries) {
+    if (entry.habitId != habit.id) continue;
+    if (latest == null || entry.loggedAt.isAfter(latest.loggedAt)) {
+      latest = entry;
+    }
+  }
+  return latest;
+}
+
+class EmptyStateCard extends StatelessWidget {
+  const EmptyStateCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.action,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return CalmCard(
+      color: theme.colorScheme.secondaryContainer.withValues(alpha: .34),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 34, color: theme.colorScheme.primary),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleLarge,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            body,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+          if (action != null) ...[const SizedBox(height: 14), action!],
         ],
       ),
     );

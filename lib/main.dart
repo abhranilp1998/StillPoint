@@ -16,7 +16,8 @@ Future<void> main() async {
   final notifications = NotificationService();
   await notifications.initialize();
   final initialState = await repository.load();
-  if (initialState.settings.softReminders) {
+  if (initialState.settings.privacyConsentCompleted &&
+      initialState.settings.softReminders) {
     await notifications.scheduleOccasionalReminders(
       hiddenContent: initialState.settings.hiddenNotifications,
     );

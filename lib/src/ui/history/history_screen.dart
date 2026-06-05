@@ -7,6 +7,7 @@ import '../../services/export_service.dart';
 import '../../state/app_controller.dart';
 import '../habit/entry_editor_sheet.dart';
 import '../habit/habit_detail_screen.dart';
+import '../logging/quick_log_sheet.dart';
 import '../widgets/adaptive_scaffold.dart';
 import '../widgets/habit_visuals.dart';
 
@@ -48,6 +49,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final entries = state == null
         ? const <UsageEntry>[]
         : _filteredEntries(state);
+    final hasFilters = _query.isNotEmpty || _range != null;
 
     return CustomScrollView(
       slivers: [
@@ -76,14 +78,17 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         if (state == null || entries.isEmpty)
           SliverFillRemaining(
             hasScrollBody: false,
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  state == null
-                      ? 'Loading local history.'
-                      : 'No logs match this view.',
-                  textAlign: TextAlign.center,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 120),
+              child: Center(
+                child: _HistoryEmptyState(
+                  loading: state == null,
+                  hasAnyLogs: state?.entries.isNotEmpty ?? false,
+                  hasFilters: hasFilters,
+                  onClearFilters: hasFilters ? _clearFilters : null,
+                  onLog: state == null
+                      ? null
+                      : () => showQuickLogSheet(context),
                 ),
               ),
             ),
@@ -138,6 +143,15 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         ],
       ],
     );
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() {
+      _query = '';
+      _range = null;
+      _sort = HistorySort.newest;
+    });
   }
 
   List<UsageEntry> _filteredEntries(AppState state) {
@@ -230,72 +244,84 @@ class _HistoryControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return CalmCard(
+      padding: const EdgeInsets.all(10),
       child: Column(
         children: [
-          TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search_rounded),
-              hintText: 'Search logs',
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          Row(
             children: [
-              DropdownButton<HistorySort>(
-                value: sort,
-                borderRadius: BorderRadius.circular(8),
-                underline: const SizedBox.shrink(),
-                items: const [
-                  DropdownMenuItem(
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    prefixIcon: Icon(Icons.search_rounded),
+                    hintText: 'Search logs',
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              PopupMenuButton<HistorySort>(
+                tooltip: 'Sort logs',
+                initialValue: sort,
+                onSelected: onSortChanged,
+                icon: const Icon(Icons.sort_rounded),
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
                     value: HistorySort.newest,
                     child: Text('Newest'),
                   ),
-                  DropdownMenuItem(
+                  PopupMenuItem(
                     value: HistorySort.oldest,
                     child: Text('Oldest'),
                   ),
-                  DropdownMenuItem(
+                  PopupMenuItem(
                     value: HistorySort.quantityHigh,
                     child: Text('Most quantity'),
                   ),
-                  DropdownMenuItem(
+                  PopupMenuItem(
                     value: HistorySort.quantityLow,
                     child: Text('Least quantity'),
                   ),
                 ],
-                onChanged: (value) {
-                  if (value != null) onSortChanged(value);
-                },
               ),
-              FilterChip(
-                selected: range != null,
-                avatar: const Icon(Icons.date_range_rounded, size: 18),
-                label: Text(
+              IconButton(
+                tooltip: range == null ? 'Date range' : 'Change date range',
+                onPressed: onPickRange,
+                icon: Icon(
                   range == null
-                      ? 'Date range'
-                      : '${DateFormat.MMMd().format(range!.start)}-${DateFormat.MMMd().format(range!.end)}',
+                      ? Icons.date_range_outlined
+                      : Icons.date_range_rounded,
                 ),
-                onSelected: (_) => onPickRange(),
               ),
-              if (range != null)
-                IconButton.outlined(
-                  tooltip: 'Clear range',
-                  onPressed: onClearRange,
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              FilledButton.tonalIcon(
-                onPressed: exporting ? null : onExportCsv,
-                icon: const Icon(Icons.description_outlined),
-                label: const Text('CSV'),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: exporting ? null : onExportXlsx,
-                icon: const Icon(Icons.table_chart_outlined),
-                label: const Text('XLSX'),
+              PopupMenuButton<String>(
+                tooltip: 'Export logs',
+                enabled:
+                    !exporting && (onExportCsv != null || onExportXlsx != null),
+                icon: const Icon(Icons.ios_share_rounded),
+                onSelected: (value) {
+                  if (value == 'csv') onExportCsv?.call();
+                  if (value == 'xlsx') onExportXlsx?.call();
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: 'csv',
+                    child: ListTile(
+                      leading: Icon(Icons.description_outlined),
+                      title: Text('Export CSV'),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'xlsx',
+                    child: ListTile(
+                      leading: Icon(Icons.table_chart_outlined),
+                      title: Text('Export XLSX'),
+                    ),
+                  ),
+                ],
               ),
               if (exporting)
                 SizedBox.square(
@@ -307,7 +333,93 @@ class _HistoryControls extends StatelessWidget {
                 ),
             ],
           ),
+          if (range != null || sort != HistorySort.newest) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  if (sort != HistorySort.newest)
+                    InputChip(
+                      avatar: const Icon(Icons.sort_rounded, size: 16),
+                      label: Text(_sortLabel(sort)),
+                      onDeleted: () => onSortChanged(HistorySort.newest),
+                    ),
+                  if (range != null)
+                    InputChip(
+                      avatar: const Icon(Icons.date_range_rounded, size: 16),
+                      label: Text(
+                        '${DateFormat.MMMd().format(range!.start)}-${DateFormat.MMMd().format(range!.end)}',
+                      ),
+                      onDeleted: onClearRange,
+                    ),
+                ],
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  String _sortLabel(HistorySort value) {
+    return switch (value) {
+      HistorySort.newest => 'Newest',
+      HistorySort.oldest => 'Oldest',
+      HistorySort.quantityHigh => 'Most quantity',
+      HistorySort.quantityLow => 'Least quantity',
+    };
+  }
+}
+
+class _HistoryEmptyState extends StatelessWidget {
+  const _HistoryEmptyState({
+    required this.loading,
+    required this.hasAnyLogs,
+    required this.hasFilters,
+    required this.onClearFilters,
+    required this.onLog,
+  });
+
+  final bool loading;
+  final bool hasAnyLogs;
+  final bool hasFilters;
+  final VoidCallback? onClearFilters;
+  final VoidCallback? onLog;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const EmptyStateCard(
+        icon: Icons.hourglass_empty_rounded,
+        title: 'Loading local history',
+        body: 'Your saved logs are opening from this device.',
+      );
+    }
+
+    if (hasAnyLogs && hasFilters) {
+      return EmptyStateCard(
+        icon: Icons.filter_alt_off_outlined,
+        title: 'No logs match these filters',
+        body: 'Clear the filters or search for a different tracker or note.',
+        action: FilledButton.icon(
+          onPressed: onClearFilters,
+          icon: const Icon(Icons.close_rounded),
+          label: const Text('Clear filters'),
+        ),
+      );
+    }
+
+    return EmptyStateCard(
+      icon: Icons.receipt_long_outlined,
+      title: 'No logs yet',
+      body: 'When you record one moment, it will appear here for review.',
+      action: OutlinedButton.icon(
+        onPressed: onLog,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Log now'),
       ),
     );
   }

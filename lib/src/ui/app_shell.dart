@@ -11,7 +11,9 @@ import 'trackers/tracker_catalog_screen.dart';
 import '../state/app_controller.dart';
 
 class AppShell extends ConsumerStatefulWidget {
-  const AppShell({super.key});
+  const AppShell({super.key, this.initiallyUnlocked = false});
+
+  final bool initiallyUnlocked;
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
@@ -33,7 +35,16 @@ class _AppShellState extends ConsumerState<AppShell>
   @override
   void initState() {
     super.initState();
+    _unlocked = widget.initiallyUnlocked;
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didUpdateWidget(covariant AppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initiallyUnlocked && !oldWidget.initiallyUnlocked) {
+      _unlocked = true;
+    }
   }
 
   @override
@@ -85,9 +96,31 @@ class _AppShellState extends ConsumerState<AppShell>
           duration: const Duration(milliseconds: 220),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            final reduceMotion = MediaQuery.disableAnimationsOf(context);
+            if (reduceMotion) {
+              return FadeTransition(opacity: animation, child: child);
+            }
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position:
+                    Tween<Offset>(
+                      begin: const Offset(0, .015),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      ),
+                    ),
+                child: child,
+              ),
+            );
+          },
           child: KeyedSubtree(key: ValueKey(_index), child: _screens[_index]),
         ),
-        floatingActionButton: FloatingActionButton.large(
+        floatingActionButton: FloatingActionButton(
           tooltip: 'Quick log',
           backgroundColor: theme.colorScheme.primary,
           foregroundColor: theme.colorScheme.onPrimary,

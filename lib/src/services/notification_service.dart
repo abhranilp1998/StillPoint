@@ -23,17 +23,18 @@ class NotificationService {
     await _plugin.initialize(settings: settings);
   }
 
-  Future<void> requestPermissions() async {
-    await _plugin
+  Future<bool> requestPermissions() async {
+    final androidGranted = await _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >()
         ?.requestNotificationsPermission();
-    await _plugin
+    final iosGranted = await _plugin
         .resolvePlatformSpecificImplementation<
           IOSFlutterLocalNotificationsPlugin
         >()
         ?.requestPermissions(alert: true, badge: false, sound: true);
+    return androidGranted ?? iosGranted ?? true;
   }
 
   Future<void> scheduleOccasionalReminders({

@@ -56,11 +56,13 @@ class _CalmCardState extends State<CalmCard> {
     final interactive = widget.onTap != null;
     final active = interactive && (_hovered || _pressed);
     final offset = !reduceMotion && active
-        ? Offset(0, _pressed ? 1 : -1)
+        ? Offset(0, _pressed ? -2 : -1)
         : Offset.zero;
-    final scale = !reduceMotion && _pressed ? .988 : 1.0;
+    final scale = !reduceMotion && _pressed
+        ? 1.006
+        : (_hovered && !reduceMotion ? 1.002 : 1.0);
     final shadowAlpha = interactive
-        ? (_pressed ? .08 : (_hovered ? .16 : .09))
+        ? (_pressed ? .18 : (_hovered ? .15 : .08))
         : .08;
 
     final card = AnimatedContainer(
@@ -74,14 +76,14 @@ class _CalmCardState extends State<CalmCard> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: active
-              ? theme.colorScheme.primary.withValues(alpha: .34)
-              : theme.colorScheme.outlineVariant.withValues(alpha: .45),
+              ? theme.colorScheme.primary.withValues(alpha: .44)
+              : theme.colorScheme.outlineVariant.withValues(alpha: .62),
         ),
         boxShadow: [
           BoxShadow(
             color: theme.shadowColor.withValues(alpha: shadowAlpha),
-            blurRadius: active ? 24 : 18,
-            offset: Offset(0, active ? 10 : 8),
+            blurRadius: active ? 26 : 16,
+            offset: Offset(0, active ? 12 : 7),
           ),
         ],
       ),
@@ -222,7 +224,7 @@ class _AnimatedPressableState extends State<AnimatedPressable> {
           onTap: widget.onTap,
           child: AnimatedScale(
             scale: _pressed && !reduceMotion
-                ? .98
+                ? 1.006
                 : (_hovered && !reduceMotion ? 1.01 : 1),
             duration: const Duration(milliseconds: 120),
             curve: Curves.easeOutCubic,

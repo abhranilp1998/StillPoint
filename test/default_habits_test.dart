@@ -20,6 +20,32 @@ void main() {
   test('gentle reminders are opt-in by default', () {
     expect(const AppSettings().softReminders, isFalse);
     expect(AppSettings.fromMap(const {}).softReminders, isFalse);
+    expect(const AppSettings().privacyConsentCompleted, isFalse);
+    expect(AppSettings.fromMap(const {}).privacyConsentCompleted, isFalse);
+    expect(
+      AppSettings.fromMap(const {
+        'softReminders': false,
+      }).privacyConsentCompleted,
+      isTrue,
+    );
+  });
+
+  test('privacy consent choice persists in settings', () {
+    final settings = const AppSettings().copyWith(
+      privacyConsentCompleted: true,
+      softReminders: true,
+      hiddenNotifications: true,
+      pinLock: true,
+      pinHash: 'hash',
+    );
+
+    final restored = AppSettings.fromMap(settings.toMap());
+
+    expect(restored.privacyConsentCompleted, isTrue);
+    expect(restored.softReminders, isTrue);
+    expect(restored.hiddenNotifications, isTrue);
+    expect(restored.pinLock, isTrue);
+    expect(restored.pinHash, 'hash');
   });
 
   test('habit cost persists and analytics estimates money that could stay', () {

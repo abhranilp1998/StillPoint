@@ -1,4 +1,3 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -57,17 +56,13 @@ class HomeScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _HeroSummary(state: state, analytics: analytics),
-                    const SizedBox(height: 14),
-                    _HomeActions(state: state),
+                    _TodaySection(state: state, analytics: analytics),
                     const SizedBox(height: 14),
                     _QuickLogSection(habits: state.activeHabits),
                     const SizedBox(height: 14),
-                    _TrackersSection(habits: state.activeHabits),
-                    const SizedBox(height: 14),
                     _InsightStrip(insights: insights),
                     const SizedBox(height: 14),
-                    _TrendCard(analytics: analytics),
+                    _TrackersSection(state: state),
                     const SizedBox(height: 120),
                   ],
                 ),
@@ -83,6 +78,34 @@ class HomeScreen extends ConsumerWidget {
         ),
       ),
       loading: () => const Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _TodaySection extends StatelessWidget {
+  const _TodaySection({required this.state, required this.analytics});
+
+  final AppState state;
+  final AnalyticsSnapshot analytics;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Today',
+          trailing: IconButton(
+            tooltip: 'Support',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const SupportScreen()),
+            ),
+            icon: const Icon(Icons.self_improvement_rounded),
+          ),
+        ),
+        const SizedBox(height: 10),
+        _HeroSummary(state: state, analytics: analytics),
+      ],
     );
   }
 }
@@ -202,117 +225,6 @@ class _HeroSummary extends StatelessWidget {
   String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';
 }
 
-class _HomeActions extends StatelessWidget {
-  const _HomeActions({required this.state});
-
-  final AppState state;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 520;
-        final children = [
-          CalmCard(
-            onTap: () => showQuickLogSheet(context),
-            padding: const EdgeInsets.all(14),
-            semanticLabel: 'Open quick log',
-            child: const _ActionContent(
-              icon: Icons.add_rounded,
-              title: 'Log now',
-              body: 'A few taps, no scorekeeping.',
-            ),
-          ),
-          CalmCard(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const TrackerCatalogScreen(),
-              ),
-            ),
-            padding: const EdgeInsets.all(14),
-            semanticLabel: 'Open trackers',
-            child: _ActionContent(
-              icon: Icons.grid_view_rounded,
-              title: 'Trackers',
-              body: '${state.activeHabits.length} ready, custom anytime.',
-            ),
-          ),
-          CalmCard(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const SupportScreen()),
-            ),
-            padding: const EdgeInsets.all(14),
-            semanticLabel: 'Open support',
-            child: const _ActionContent(
-              icon: Icons.self_improvement_rounded,
-              title: 'Support',
-              body: 'Pause, breathe, choose next.',
-            ),
-          ),
-        ];
-
-        if (compact) {
-          return Column(
-            children: [
-              for (final child in children) ...[
-                child,
-                const SizedBox(height: 10),
-              ],
-            ]..removeLast(),
-          );
-        }
-
-        return Row(
-          children: [
-            for (final child in children) ...[
-              Expanded(child: child),
-              const SizedBox(width: 10),
-            ],
-          ]..removeLast(),
-        );
-      },
-    );
-  }
-}
-
-class _ActionContent extends StatelessWidget {
-  const _ActionContent({
-    required this.icon,
-    required this.title,
-    required this.body,
-  });
-
-  final IconData icon;
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      children: [
-        Icon(icon, color: theme.colorScheme.primary),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: theme.textTheme.titleMedium),
-              const SizedBox(height: 2),
-              Text(
-                body,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _QuickLogSection extends StatelessWidget {
   const _QuickLogSection({required this.habits});
 
@@ -320,6 +232,19 @@ class _QuickLogSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (habits.isEmpty) {
+      return EmptyStateCard(
+        icon: Icons.add_circle_outline_rounded,
+        title: 'No trackers yet',
+        body: 'Add one small thing to track, then quick logs will appear here.',
+        action: FilledButton.icon(
+          onPressed: () => showAddHabitSheet(context),
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Add tracker'),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -356,13 +281,27 @@ class _QuickLogSection extends StatelessWidget {
 }
 
 class _TrackersSection extends StatelessWidget {
-  const _TrackersSection({required this.habits});
+  const _TrackersSection({required this.state});
 
-  final List<Habit> habits;
+  final AppState state;
 
   @override
   Widget build(BuildContext context) {
+    final habits = state.activeHabits;
     final visibleHabits = habits.take(6).toList(growable: false);
+    if (habits.isEmpty) {
+      return EmptyStateCard(
+        icon: Icons.grid_view_rounded,
+        title: 'Trackers will live here',
+        body: 'Create a tracker when you know what would be useful to notice.',
+        action: OutlinedButton.icon(
+          onPressed: () => showAddHabitSheet(context),
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Add tracker'),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -391,7 +330,7 @@ class _TrackersSection extends StatelessWidget {
                 crossAxisCount: isWide ? 3 : 2,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
-                mainAxisExtent: 88,
+                mainAxisExtent: 116,
               ),
               itemBuilder: (context, index) {
                 if (index == visibleHabits.length) {
@@ -402,6 +341,7 @@ class _TrackersSection extends StatelessWidget {
                 final habit = visibleHabits[index];
                 return TrackerTile(
                   habit: habit,
+                  lastEntry: latestEntryForHabit(habit, state.entries),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => HabitDetailScreen(habitId: habit.id),
@@ -425,6 +365,22 @@ class _InsightStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (insights.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          SectionHeader(title: 'Observations'),
+          SizedBox(height: 10),
+          EmptyStateCard(
+            icon: Icons.lightbulb_outline_rounded,
+            title: 'Patterns need a little time',
+            body:
+                'A few logs with optional mood, craving, or context will make this space more useful.',
+          ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -579,88 +535,6 @@ class _InsightStrip extends StatelessWidget {
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _TrendCard extends StatelessWidget {
-  const _TrendCard({required this.analytics});
-
-  final AnalyticsSnapshot analytics;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final recent = analytics.daily.skip(analytics.daily.length - 21).toList();
-    final maxValue = recent.fold<double>(
-      1,
-      (value, day) => day.quantity > value ? day.quantity : value,
-    );
-    final spots = [
-      for (var i = 0; i < recent.length; i++)
-        FlSpot(i.toDouble(), recent[i].quantity),
-    ];
-
-    return CalmCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SectionHeader(title: 'Recent trend'),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 180,
-            child: LineChart(
-              LineChartData(
-                minY: 0,
-                maxY: maxValue * 1.18,
-                gridData: FlGridData(
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: .4,
-                    ),
-                    strokeWidth: 1,
-                  ),
-                ),
-                titlesData: const FlTitlesData(show: false),
-                borderData: FlBorderData(show: false),
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (_) => theme.colorScheme.inverseSurface,
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: spots,
-                    isCurved: true,
-                    curveSmoothness: .22,
-                    barWidth: 3,
-                    color: theme.colorScheme.primary,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: theme.colorScheme.primary.withValues(alpha: .12),
-                    ),
-                  ),
-                ],
-              ),
-              duration: const Duration(milliseconds: 550),
-              curve: Curves.easeOutCubic,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            analytics.totalLogs == 0
-                ? 'Your first few logs will turn this into a useful pattern.'
-                : analytics.reductionPercent >= 0
-                ? 'This week is ${analytics.reductionPercent.toStringAsFixed(0)}% lower than last week.'
-                : 'This week is ${analytics.reductionPercent.abs().toStringAsFixed(0)}% higher than last week.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
       ),
     );
   }

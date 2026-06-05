@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'state/app_controller.dart';
 import 'theme/app_theme.dart';
 import 'ui/app_shell.dart';
+import 'ui/onboarding/privacy_consent_screen.dart';
 
 class RecoveryApp extends ConsumerWidget {
   const RecoveryApp({super.key});
@@ -49,7 +50,85 @@ class RecoveryApp extends ConsumerWidget {
           child: content,
         );
       },
-      home: const AppShell(),
+      home: const StartupGate(),
+    );
+  }
+}
+
+class StartupGate extends ConsumerStatefulWidget {
+  const StartupGate({super.key});
+
+  @override
+  ConsumerState<StartupGate> createState() => _StartupGateState();
+}
+
+class _StartupGateState extends ConsumerState<StartupGate> {
+  bool _startUnlocked = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = ref.watch(appControllerProvider);
+    return appState.when(
+      data: (state) {
+        if (!state.settings.privacyConsentCompleted) {
+          return PrivacyConsentScreen(
+            settings: state.settings,
+            onComplete: () => setState(() => _startUnlocked = true),
+          );
+        }
+        return AppShell(initiallyUnlocked: _startUnlocked);
+      },
+      loading: () => const _StartupStatusScreen(),
+      error: (error, stackTrace) => _StartupStatusScreen(
+        icon: Icons.error_outline_rounded,
+        title: 'Stillpoint could not open',
+        body: 'Please close the app and try again.',
+      ),
+    );
+  }
+}
+
+class _StartupStatusScreen extends StatelessWidget {
+  const _StartupStatusScreen({
+    this.icon,
+    this.title = 'Opening Stillpoint',
+    this.body = 'Preparing your private space.',
+  });
+
+  final IconData? icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon == null)
+                  const CircularProgressIndicator()
+                else
+                  Icon(icon, size: 40, color: theme.colorScheme.error),
+                const SizedBox(height: 18),
+                Text(title, style: theme.textTheme.headlineMedium),
+                const SizedBox(height: 8),
+                Text(
+                  body,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

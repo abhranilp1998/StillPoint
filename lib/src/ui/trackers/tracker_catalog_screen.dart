@@ -44,44 +44,68 @@ class TrackerCatalogScreen extends ConsumerWidget {
                         'These are starting points. Add a custom tracker whenever your real pattern needs its own name.',
                   ),
                   const SizedBox(height: 14),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final crossAxisCount = switch (constraints.maxWidth) {
-                        > 900 => 4,
-                        > 620 => 3,
-                        _ => 2,
-                      };
-                      return GridView.builder(
-                        padding: EdgeInsets.zero,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: habits.length + 1,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: crossAxisCount,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          mainAxisExtent: 90,
-                        ),
-                        itemBuilder: (context, index) {
-                          if (index == habits.length) {
-                            return AddTrackerTile(
-                              onTap: () => showAddHabitSheet(context),
-                            );
-                          }
-                          final habit = habits[index];
-                          return TrackerTile(
-                            habit: habit,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    HabitDetailScreen(habitId: habit.id),
+                  if (state == null)
+                    const EmptyStateCard(
+                      icon: Icons.hourglass_empty_rounded,
+                      title: 'Loading trackers',
+                      body: 'Your local tracker list is opening.',
+                    )
+                  else if (habits.isEmpty)
+                    EmptyStateCard(
+                      icon: Icons.add_circle_outline_rounded,
+                      title: 'Add your first tracker',
+                      body:
+                          'Pick a starting point or create one that matches your real pattern.',
+                      action: FilledButton.icon(
+                        onPressed: () => showAddHabitSheet(context),
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Add tracker'),
+                      ),
+                    )
+                  else
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final crossAxisCount = switch (constraints.maxWidth) {
+                          > 900 => 4,
+                          > 620 => 3,
+                          _ => 2,
+                        };
+                        return GridView.builder(
+                          padding: EdgeInsets.zero,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: habits.length + 1,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                mainAxisExtent: 116,
                               ),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
+                          itemBuilder: (context, index) {
+                            if (index == habits.length) {
+                              return AddTrackerTile(
+                                onTap: () => showAddHabitSheet(context),
+                              );
+                            }
+                            final habit = habits[index];
+                            return TrackerTile(
+                              habit: habit,
+                              lastEntry: latestEntryForHabit(
+                                habit,
+                                state.entries,
+                              ),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      HabitDetailScreen(habitId: habit.id),
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
                   const SizedBox(height: 120),
                 ],
               ),

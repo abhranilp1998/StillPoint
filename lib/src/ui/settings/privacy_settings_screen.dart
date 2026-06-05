@@ -6,6 +6,7 @@ import '../../core/models.dart';
 import '../../services/notification_service.dart';
 import '../../services/security_service.dart';
 import '../../state/app_controller.dart';
+import '../security/pin_setup_dialog.dart';
 import '../widgets/adaptive_scaffold.dart';
 
 class PrivacySettingsScreen extends ConsumerWidget {
@@ -162,7 +163,7 @@ class _SecurityCard extends ConsumerWidget {
       return;
     }
 
-    final pin = await _askForPin(context);
+    final pin = await showPinSetupDialog(context);
     if (pin == null) return;
     await ref
         .read(appControllerProvider.notifier)
@@ -172,55 +173,6 @@ class _SecurityCard extends ConsumerWidget {
             pinHash: SecurityService.hashPin(pin),
           ),
         );
-  }
-
-  Future<String?> _askForPin(BuildContext context) async {
-    final controller = TextEditingController();
-    String? error;
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Set PIN'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: controller,
-                autofocus: true,
-                obscureText: true,
-                keyboardType: TextInputType.number,
-                maxLength: 8,
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: '4-8 digits',
-                  errorText: error,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                final pin = controller.text.trim();
-                if (!SecurityService.isPinFormat(pin)) {
-                  setDialogState(() => error = 'Use 4-8 digits.');
-                  return;
-                }
-                Navigator.pop(context, pin);
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
-    );
-    controller.dispose();
-    return result;
   }
 }
 
@@ -245,24 +197,34 @@ class _NotificationCard extends ConsumerWidget {
             ),
             value: settings.softReminders,
             onChanged: (value) async {
-              final next = settings.copyWith(softReminders: value);
               if (value) {
-                await ref
+                final granted = await ref
                     .read(notificationServiceProvider)
                     .requestPermissions();
+                if (!context.mounted) return;
+                if (!granted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Notifications stayed off.')),
+                  );
+                  return;
+                }
+                final next = settings.copyWith(softReminders: true);
                 await ref
                     .read(notificationServiceProvider)
                     .scheduleOccasionalReminders(
                       hiddenContent: next.hiddenNotifications,
                     );
+                await ref
+                    .read(appControllerProvider.notifier)
+                    .updateSettings(next);
               } else {
                 await ref
                     .read(notificationServiceProvider)
                     .cancelOccasionalReminders();
+                await ref
+                    .read(appControllerProvider.notifier)
+                    .updateSettings(settings.copyWith(softReminders: false));
               }
-              await ref
-                  .read(appControllerProvider.notifier)
-                  .updateSettings(next);
             },
           ),
           SwitchListTile(
