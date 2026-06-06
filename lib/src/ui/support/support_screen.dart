@@ -10,27 +10,31 @@ class SupportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
-      slivers: [
-        const SliverAppBar(pinned: true, title: Text('Support')),
-        SliverToBoxAdapter(
-          child: ScreenPadding(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                _SlowModeHeader(),
-                SizedBox(height: 16),
-                BreathingTimer(),
-                SizedBox(height: 16),
-                UrgeDelayCard(),
-                SizedBox(height: 16),
-                GroundingPrompts(),
-                SizedBox(height: 120),
-              ],
+    final theme = Theme.of(context);
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: CustomScrollView(
+        slivers: [
+          const SliverAppBar(pinned: true, title: Text('Support')),
+          SliverToBoxAdapter(
+            child: ScreenPadding(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  _SlowModeHeader(),
+                  SizedBox(height: 14),
+                  BreathingTimer(),
+                  SizedBox(height: 14),
+                  UrgeDelayCard(),
+                  SizedBox(height: 14),
+                  GroundingPrompts(),
+                  SizedBox(height: 120),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -41,33 +45,70 @@ class _SlowModeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return DecoratedBox(
+    final scheme = theme.colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
+    final accent = isDark ? scheme.tertiary : const Color(0xFF9E4A24);
+    return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        color: theme.colorScheme.primaryContainer.withValues(alpha: .62),
+        borderRadius: BorderRadius.circular(12),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  scheme.surfaceContainerHigh,
+                  Color.alphaBlend(
+                    scheme.tertiary.withValues(alpha: .16),
+                    scheme.surfaceContainer,
+                  ),
+                ]
+              : const [Color(0xFFF4DED2), Color(0xFFEED1C0)],
+        ),
+        border: Border.all(
+          color: isDark
+              ? scheme.tertiary.withValues(alpha: .22)
+              : const Color(0xFFDAB9A8),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withValues(alpha: .08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.self_improvement_rounded,
-              size: 32,
-              color: theme.colorScheme.onPrimaryContainer,
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  Icons.self_improvement_rounded,
+                  size: 26,
+                  color: accent,
+                ),
+              ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Text(
-              'A quieter screen for intense moments.',
-              style: theme.textTheme.headlineMedium,
+              'A quieter screen for intense moments',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: scheme.onSurface,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'No score, no reset, no pressure. Just enough structure to wait out the wave.',
               style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onPrimaryContainer.withValues(
-                  alpha: .76,
-                ),
+                color: scheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -98,13 +139,24 @@ class _BreathingTimerState extends State<BreathingTimer> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final phase = _phase;
     return CalmCard(
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeader(title: 'Breathing'),
-          const SizedBox(height: 16),
+          SectionHeader(
+            title: 'Breathing',
+            trailing: Text(
+              _seconds == 0 ? '12 sec cycle' : _formatElapsed(_seconds),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
           Center(
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: _running ? 1 : 0),
@@ -115,18 +167,30 @@ class _BreathingTimerState extends State<BreathingTimer> {
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 900),
                   curve: Curves.easeInOut,
-                  width: 172 * wave,
-                  height: 172 * wave,
+                  width: 164 * wave,
+                  height: 164 * wave,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: theme.colorScheme.primary.withValues(alpha: .14),
+                    color: scheme.primary.withValues(alpha: .12),
                     border: Border.all(
-                      color: theme.colorScheme.primary.withValues(alpha: .36),
+                      color: scheme.primary.withValues(alpha: .36),
                       width: 2,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.primary.withValues(alpha: .08),
+                        blurRadius: 24,
+                        spreadRadius: 6,
+                      ),
+                    ],
                   ),
                   child: Center(
-                    child: Text(phase, style: theme.textTheme.titleLarge),
+                    child: Text(
+                      phase,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: scheme.onSurface,
+                      ),
+                    ),
                   ),
                 );
               },
@@ -164,6 +228,12 @@ class _BreathingTimerState extends State<BreathingTimer> {
     if (cycle < 6) return 'Hold';
     if (cycle < 10) return 'Exhale';
     return 'Rest';
+  }
+
+  String _formatElapsed(int seconds) {
+    final minutes = seconds ~/ 60;
+    final rest = seconds % 60;
+    return '$minutes:${rest.toString().padLeft(2, '0')}';
   }
 
   void _start() {
@@ -208,8 +278,10 @@ class _UrgeDelayCardState extends State<UrgeDelayCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final running = _remaining > 0;
     return CalmCard(
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -222,7 +294,7 @@ class _UrgeDelayCardState extends State<UrgeDelayCard> {
             style: running
                 ? theme.textTheme.headlineLarge
                 : theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: scheme.onSurfaceVariant,
                   ),
           ),
           const SizedBox(height: 16),
@@ -230,18 +302,9 @@ class _UrgeDelayCardState extends State<UrgeDelayCard> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              FilledButton.tonal(
-                onPressed: () => _start(120),
-                child: const Text('2 min'),
-              ),
-              FilledButton.tonal(
-                onPressed: () => _start(300),
-                child: const Text('5 min'),
-              ),
-              FilledButton.tonal(
-                onPressed: () => _start(600),
-                child: const Text('10 min'),
-              ),
+              _DelayButton(label: '2 min', onPressed: () => _start(120)),
+              _DelayButton(label: '5 min', onPressed: () => _start(300)),
+              _DelayButton(label: '10 min', onPressed: () => _start(600)),
               if (running)
                 OutlinedButton.icon(
                   onPressed: _clear,
@@ -280,6 +343,28 @@ class _UrgeDelayCardState extends State<UrgeDelayCard> {
   }
 }
 
+class _DelayButton extends StatelessWidget {
+  const _DelayButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return FilledButton.tonal(
+      style: FilledButton.styleFrom(
+        backgroundColor: scheme.primaryContainer.withValues(alpha: .72),
+        foregroundColor: scheme.onPrimaryContainer,
+        minimumSize: const Size(92, 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      onPressed: onPressed,
+      child: Text(label),
+    );
+  }
+}
+
 class GroundingPrompts extends StatelessWidget {
   const GroundingPrompts({super.key});
 
@@ -305,42 +390,51 @@ class GroundingPrompts extends StatelessWidget {
       children: [
         const SectionHeader(title: 'Grounding'),
         const SizedBox(height: 10),
-        GridView.builder(
-          padding: EdgeInsets.zero,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: prompts.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 1.15,
-          ),
-          itemBuilder: (context, index) {
-            final prompt = prompts[index];
-            return CalmCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(prompt.$1),
-                  const Spacer(),
-                  Text(
-                    prompt.$2,
-                    style: Theme.of(context).textTheme.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    prompt.$3,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final crossAxisCount = constraints.maxWidth > 620 ? 4 : 2;
+            return GridView.builder(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: prompts.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                mainAxisExtent: 154,
               ),
+              itemBuilder: (context, index) {
+                final prompt = prompts[index];
+                return CalmCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        prompt.$1,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const Spacer(),
+                      Text(
+                        prompt.$2,
+                        style: Theme.of(context).textTheme.titleMedium,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        prompt.$3,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             );
           },
         ),

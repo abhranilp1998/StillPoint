@@ -1,6 +1,7 @@
 import 'package:adaptive_recovery_tracker/src/core/models.dart';
 import 'package:adaptive_recovery_tracker/src/core/habit_library.dart';
 import 'package:adaptive_recovery_tracker/src/services/analytics_service.dart';
+import 'package:adaptive_recovery_tracker/src/services/notification_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -38,6 +39,13 @@ void main() {
       hiddenNotifications: true,
       pinLock: true,
       pinHash: 'hash',
+      quietStartHour: 21,
+      quietStartMinute: 30,
+      quietEndHour: 7,
+      quietEndMinute: 15,
+      reminderHour: 19,
+      reminderMinute: 45,
+      reminderTimezone: 'Asia/Kolkata',
     );
 
     final restored = AppSettings.fromMap(settings.toMap());
@@ -47,6 +55,29 @@ void main() {
     expect(restored.hiddenNotifications, isTrue);
     expect(restored.pinLock, isTrue);
     expect(restored.pinHash, 'hash');
+    expect(restored.quietStartMinutes, 21 * 60 + 30);
+    expect(restored.quietEndMinutes, 7 * 60 + 15);
+    expect(restored.reminderMinutes, 19 * 60 + 45);
+    expect(restored.reminderTimezone, 'Asia/Kolkata');
+  });
+
+  test('quiet hours move reminder delivery to the allowed window', () {
+    final settings = const AppSettings().copyWith(
+      reminderHour: 23,
+      reminderMinute: 10,
+      quietHours: true,
+      quietStartHour: 22,
+      quietEndHour: 8,
+    );
+
+    final next = NotificationService.nextAllowedReminderAfter(
+      now: DateTime(2026, 6, 6, 20),
+      settings: settings,
+    );
+
+    expect(next, DateTime(2026, 6, 7, 8));
+    expect(settings.isInQuietHours(23 * 60 + 10), isTrue);
+    expect(settings.isInQuietHours(12 * 60), isFalse);
   });
 
   test('habit cost persists and analytics estimates money that could stay', () {

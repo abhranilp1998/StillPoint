@@ -18,9 +18,18 @@ Future<void> main() async {
   final initialState = await repository.load();
   if (initialState.settings.privacyConsentCompleted &&
       initialState.settings.softReminders) {
-    await notifications.scheduleOccasionalReminders(
-      hiddenContent: initialState.settings.hiddenNotifications,
+    final result = await notifications.scheduleOccasionalReminders(
+      settings: initialState.settings,
     );
+    if (result.timezoneName != initialState.settings.reminderTimezone) {
+      await repository.save(
+        initialState.copyWith(
+          settings: initialState.settings.copyWith(
+            reminderTimezone: result.timezoneName,
+          ),
+        ),
+      );
+    }
   } else {
     await notifications.cancelOccasionalReminders();
   }

@@ -8,14 +8,22 @@ class ScreenPadding extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        16 + MediaQuery.paddingOf(context).bottom,
+    final width = MediaQuery.sizeOf(context).width;
+    final horizontalPadding = width >= 720 ? 24.0 : 16.0;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 920),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            12,
+            horizontalPadding,
+            16 + MediaQuery.paddingOf(context).bottom,
+          ),
+          child: child,
+        ),
       ),
-      child: child,
     );
   }
 }
@@ -56,34 +64,34 @@ class _CalmCardState extends State<CalmCard> {
     final interactive = widget.onTap != null;
     final active = interactive && (_hovered || _pressed);
     final offset = !reduceMotion && active
-        ? Offset(0, _pressed ? -2 : -1)
+        ? Offset(0, _pressed ? -1.5 : -.75)
         : Offset.zero;
     final scale = !reduceMotion && _pressed
-        ? 1.006
-        : (_hovered && !reduceMotion ? 1.002 : 1.0);
+        ? 1.004
+        : (_hovered && !reduceMotion ? 1.001 : 1.0);
     final shadowAlpha = interactive
-        ? (_pressed ? .18 : (_hovered ? .15 : .08))
-        : .08;
+        ? (_pressed ? .14 : (_hovered ? .12 : .06))
+        : .06;
 
     final card = AnimatedContainer(
-      duration: Duration(milliseconds: reduceMotion ? 1 : 150),
+      duration: Duration(milliseconds: reduceMotion ? 1 : 170),
       curve: Curves.easeOutCubic,
       transform: Matrix4.translationValues(offset.dx, offset.dy, 0)
         ..scaleByDouble(scale, scale, scale, 1),
       transformAlignment: Alignment.center,
       decoration: BoxDecoration(
-        color: widget.color ?? theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(10),
+        color: widget.color ?? theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: active
-              ? theme.colorScheme.primary.withValues(alpha: .44)
-              : theme.colorScheme.outlineVariant.withValues(alpha: .62),
+              ? theme.colorScheme.primary.withValues(alpha: .36)
+              : theme.colorScheme.outlineVariant.withValues(alpha: .48),
         ),
         boxShadow: [
           BoxShadow(
             color: theme.shadowColor.withValues(alpha: shadowAlpha),
-            blurRadius: active ? 26 : 16,
-            offset: Offset(0, active ? 12 : 7),
+            blurRadius: active ? 22 : 14,
+            offset: Offset(0, active ? 10 : 6),
           ),
         ],
       ),
@@ -224,9 +232,9 @@ class _AnimatedPressableState extends State<AnimatedPressable> {
           onTap: widget.onTap,
           child: AnimatedScale(
             scale: _pressed && !reduceMotion
-                ? 1.006
-                : (_hovered && !reduceMotion ? 1.01 : 1),
-            duration: const Duration(milliseconds: 120),
+                ? 1.004
+                : (_hovered && !reduceMotion ? 1.006 : 1),
+            duration: const Duration(milliseconds: 140),
             curve: Curves.easeOutCubic,
             child: widget.child,
           ),

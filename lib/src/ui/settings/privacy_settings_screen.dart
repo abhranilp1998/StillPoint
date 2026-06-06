@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../core/models.dart';
@@ -183,6 +184,7 @@ class _NotificationCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
     return CalmCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,36 +198,7 @@ class _NotificationCard extends ConsumerWidget {
               'Opt-in warm reminders about every few days. No streak pressure.',
             ),
             value: settings.softReminders,
-            onChanged: (value) async {
-              if (value) {
-                final granted = await ref
-                    .read(notificationServiceProvider)
-                    .requestPermissions();
-                if (!context.mounted) return;
-                if (!granted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Notifications stayed off.')),
-                  );
-                  return;
-                }
-                final next = settings.copyWith(softReminders: true);
-                await ref
-                    .read(notificationServiceProvider)
-                    .scheduleOccasionalReminders(
-                      hiddenContent: next.hiddenNotifications,
-                    );
-                await ref
-                    .read(appControllerProvider.notifier)
-                    .updateSettings(next);
-              } else {
-                await ref
-                    .read(notificationServiceProvider)
-                    .cancelOccasionalReminders();
-                await ref
-                    .read(appControllerProvider.notifier)
-                    .updateSettings(settings.copyWith(softReminders: false));
-              }
-            },
+            onChanged: (value) => _toggleReminders(context, ref, value),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -234,18 +207,69 @@ class _NotificationCard extends ConsumerWidget {
               'Sensitive details stay out of notifications.',
             ),
             value: settings.hiddenNotifications,
-            onChanged: (value) async {
-              final next = settings.copyWith(hiddenNotifications: value);
-              if (next.softReminders) {
-                await ref
-                    .read(notificationServiceProvider)
-                    .scheduleOccasionalReminders(hiddenContent: value);
-              }
-              await ref
-                  .read(appControllerProvider.notifier)
-                  .updateSettings(next);
-            },
+            onChanged: (value) => _saveReminderSettings(
+              context,
+              ref,
+              settings.copyWith(hiddenNotifications: value),
+            ),
           ),
+          const SizedBox(height: 8),
+          Divider(color: theme.colorScheme.outlineVariant),
+          _ReminderTimeRow(
+            settings: settings,
+            onTap: () => _pickReminderTime(context, ref),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.nights_stay_outlined),
+            title: const Text('Quiet hours'),
+            subtitle: Text(_quietHoursSummary(context, settings)),
+            value: settings.quietHours,
+            onChanged: (value) => _saveReminderSettings(
+              context,
+              ref,
+              settings.copyWith(quietHours: value),
+            ),
+          ),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 160),
+            opacity: settings.quietHours ? 1 : .46,
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: settings.quietHours
+                        ? () => _pickQuietTime(context, ref, start: true)
+                        : null,
+                    icon: const Icon(Icons.bedtime_outlined),
+                    label: Text(
+                      'Start ${_timeLabel(context, settings.quietStartHour, settings.quietStartMinute)}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: settings.quietHours
+                        ? () => _pickQuietTime(context, ref, start: false)
+                        : null,
+                    icon: const Icon(Icons.wb_twilight_outlined),
+                    label: Text(
+                      'End ${_timeLabel(context, settings.quietEndHour, settings.quietEndMinute)}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          _TimezoneRow(
+            settings: settings,
+            onRefresh: () => _refreshTimezone(context, ref),
+          ),
+          const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
@@ -264,6 +288,185 @@ class _NotificationCard extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _toggleReminders(
+    BuildContext context,
+    WidgetRef ref,
+    bool value,
+  ) async {
+    if (!value) {
+      await ref.read(notificationServiceProvider).cancelOccasionalReminders();
+      await ref
+          .read(appControllerProvider.notifier)
+          .updateSettings(settings.copyWith(softReminders: false));
+      return;
+    }
+
+    final granted = await ref
+        .read(notificationServiceProvider)
+        .requestPermissions();
+    if (!context.mounted) return;
+    if (!granted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Notifications stayed off.')),
+      );
+      return;
+    }
+
+    await _saveReminderSettings(
+      context,
+      ref,
+      settings.copyWith(softReminders: true),
+      showNextReminder: true,
+    );
+  }
+
+  Future<void> _pickReminderTime(BuildContext context, WidgetRef ref) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+        hour: settings.reminderHour,
+        minute: settings.reminderMinute,
+      ),
+    );
+    if (picked == null || !context.mounted) return;
+
+    await _saveReminderSettings(
+      context,
+      ref,
+      settings.copyWith(
+        reminderHour: picked.hour,
+        reminderMinute: picked.minute,
+      ),
+      showNextReminder: settings.softReminders,
+    );
+  }
+
+  Future<void> _pickQuietTime(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool start,
+  }) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(
+        hour: start ? settings.quietStartHour : settings.quietEndHour,
+        minute: start ? settings.quietStartMinute : settings.quietEndMinute,
+      ),
+    );
+    if (picked == null || !context.mounted) return;
+
+    await _saveReminderSettings(
+      context,
+      ref,
+      start
+          ? settings.copyWith(
+              quietStartHour: picked.hour,
+              quietStartMinute: picked.minute,
+            )
+          : settings.copyWith(
+              quietEndHour: picked.hour,
+              quietEndMinute: picked.minute,
+            ),
+      showNextReminder: settings.softReminders,
+    );
+  }
+
+  Future<void> _refreshTimezone(BuildContext context, WidgetRef ref) async {
+    final timezoneName = await ref
+        .read(notificationServiceProvider)
+        .configureLocalTimezone(fallbackTimezone: settings.reminderTimezone);
+    if (!context.mounted) return;
+    await _saveReminderSettings(
+      context,
+      ref,
+      settings.copyWith(reminderTimezone: timezoneName),
+      showNextReminder: settings.softReminders,
+    );
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Timezone set to $timezoneName.')));
+    }
+  }
+
+  Future<void> _saveReminderSettings(
+    BuildContext context,
+    WidgetRef ref,
+    AppSettings next, {
+    bool showNextReminder = false,
+  }) async {
+    ReminderScheduleResult? scheduleResult;
+    if (next.softReminders) {
+      scheduleResult = await ref
+          .read(notificationServiceProvider)
+          .scheduleOccasionalReminders(settings: next);
+      next = next.copyWith(reminderTimezone: scheduleResult.timezoneName);
+    }
+
+    await ref.read(appControllerProvider.notifier).updateSettings(next);
+    if (!context.mounted || !showNextReminder) return;
+
+    final nextDelivery = scheduleResult?.nextDelivery;
+    if (nextDelivery == null) return;
+    final formatted = DateFormat.MMMd().add_jm().format(nextDelivery);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Next gentle check-in: $formatted.')),
+    );
+  }
+
+  String _quietHoursSummary(BuildContext context, AppSettings settings) {
+    if (!settings.quietHours) return 'Reminders can arrive any time.';
+    return '${_timeLabel(context, settings.quietStartHour, settings.quietStartMinute)} to '
+        '${_timeLabel(context, settings.quietEndHour, settings.quietEndMinute)}';
+  }
+}
+
+class _ReminderTimeRow extends StatelessWidget {
+  const _ReminderTimeRow({required this.settings, required this.onTap});
+
+  final AppSettings settings;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.schedule_rounded),
+      title: const Text('Preferred check-in time'),
+      subtitle: Text(
+        'Every ${settings.reminderCadenceDays} days near ${_timeLabel(context, settings.reminderHour, settings.reminderMinute)}',
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
+    );
+  }
+}
+
+class _TimezoneRow extends StatelessWidget {
+  const _TimezoneRow({required this.settings, required this.onRefresh});
+
+  final AppSettings settings;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.public_rounded),
+      title: const Text('Timezone'),
+      subtitle: Text(settings.reminderTimezone ?? 'Device timezone'),
+      trailing: IconButton(
+        tooltip: 'Refresh timezone',
+        onPressed: onRefresh,
+        icon: const Icon(Icons.sync_rounded),
+      ),
+    );
+  }
+}
+
+String _timeLabel(BuildContext context, int hour, int minute) {
+  return TimeOfDay(hour: hour, minute: minute).format(context);
 }
 
 class _AppearanceCard extends ConsumerWidget {

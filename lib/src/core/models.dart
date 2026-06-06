@@ -306,7 +306,13 @@ class AppSettings {
     this.softReminders = false,
     this.quietHours = true,
     this.quietStartHour = 22,
+    this.quietStartMinute = 0,
     this.quietEndHour = 8,
+    this.quietEndMinute = 0,
+    this.reminderHour = 18,
+    this.reminderMinute = 0,
+    this.reminderCadenceDays = 3,
+    this.reminderTimezone,
     this.reduceMotion = false,
     this.privacyConsentCompleted = false,
   });
@@ -321,9 +327,34 @@ class AppSettings {
   final bool softReminders;
   final bool quietHours;
   final int quietStartHour;
+  final int quietStartMinute;
   final int quietEndHour;
+  final int quietEndMinute;
+  final int reminderHour;
+  final int reminderMinute;
+  final int reminderCadenceDays;
+  final String? reminderTimezone;
   final bool reduceMotion;
   final bool privacyConsentCompleted;
+
+  int get quietStartMinutes =>
+      _minutesAfterMidnight(quietStartHour, quietStartMinute);
+
+  int get quietEndMinutes =>
+      _minutesAfterMidnight(quietEndHour, quietEndMinute);
+
+  int get reminderMinutes =>
+      _minutesAfterMidnight(reminderHour, reminderMinute);
+
+  bool isInQuietHours(int minutesAfterMidnight) {
+    if (!quietHours) return false;
+    final start = quietStartMinutes;
+    final end = quietEndMinutes;
+    final minute = minutesAfterMidnight.clamp(0, 1439);
+    if (start == end) return false;
+    if (start < end) return minute >= start && minute < end;
+    return minute >= start || minute < end;
+  }
 
   AppSettings copyWith({
     bool? useSystemTheme,
@@ -337,7 +368,14 @@ class AppSettings {
     bool? softReminders,
     bool? quietHours,
     int? quietStartHour,
+    int? quietStartMinute,
     int? quietEndHour,
+    int? quietEndMinute,
+    int? reminderHour,
+    int? reminderMinute,
+    int? reminderCadenceDays,
+    String? reminderTimezone,
+    bool clearReminderTimezone = false,
     bool? reduceMotion,
     bool? privacyConsentCompleted,
   }) {
@@ -351,8 +389,21 @@ class AppSettings {
       hiddenNotifications: hiddenNotifications ?? this.hiddenNotifications,
       softReminders: softReminders ?? this.softReminders,
       quietHours: quietHours ?? this.quietHours,
-      quietStartHour: quietStartHour ?? this.quietStartHour,
-      quietEndHour: quietEndHour ?? this.quietEndHour,
+      quietStartHour: _normalizeHour(quietStartHour ?? this.quietStartHour),
+      quietStartMinute: _normalizeMinute(
+        quietStartMinute ?? this.quietStartMinute,
+      ),
+      quietEndHour: _normalizeHour(quietEndHour ?? this.quietEndHour),
+      quietEndMinute: _normalizeMinute(quietEndMinute ?? this.quietEndMinute),
+      reminderHour: _normalizeHour(reminderHour ?? this.reminderHour),
+      reminderMinute: _normalizeMinute(reminderMinute ?? this.reminderMinute),
+      reminderCadenceDays: max(
+        1,
+        reminderCadenceDays ?? this.reminderCadenceDays,
+      ),
+      reminderTimezone: clearReminderTimezone
+          ? null
+          : reminderTimezone ?? this.reminderTimezone,
       reduceMotion: reduceMotion ?? this.reduceMotion,
       privacyConsentCompleted:
           privacyConsentCompleted ?? this.privacyConsentCompleted,
@@ -371,7 +422,13 @@ class AppSettings {
       'softReminders': softReminders,
       'quietHours': quietHours,
       'quietStartHour': quietStartHour,
+      'quietStartMinute': quietStartMinute,
       'quietEndHour': quietEndHour,
+      'quietEndMinute': quietEndMinute,
+      'reminderHour': reminderHour,
+      'reminderMinute': reminderMinute,
+      'reminderCadenceDays': reminderCadenceDays,
+      'reminderTimezone': reminderTimezone,
       'reduceMotion': reduceMotion,
       'privacyConsentCompleted': privacyConsentCompleted,
     };
@@ -388,14 +445,41 @@ class AppSettings {
       hiddenNotifications: map['hiddenNotifications'] as bool? ?? true,
       softReminders: map['softReminders'] as bool? ?? false,
       quietHours: map['quietHours'] as bool? ?? true,
-      quietStartHour: (map['quietStartHour'] as num?)?.toInt() ?? 22,
-      quietEndHour: (map['quietEndHour'] as num?)?.toInt() ?? 8,
+      quietStartHour: _normalizeHour(
+        (map['quietStartHour'] as num?)?.toInt() ?? 22,
+      ),
+      quietStartMinute: _normalizeMinute(
+        (map['quietStartMinute'] as num?)?.toInt() ?? 0,
+      ),
+      quietEndHour: _normalizeHour((map['quietEndHour'] as num?)?.toInt() ?? 8),
+      quietEndMinute: _normalizeMinute(
+        (map['quietEndMinute'] as num?)?.toInt() ?? 0,
+      ),
+      reminderHour: _normalizeHour(
+        (map['reminderHour'] as num?)?.toInt() ?? 18,
+      ),
+      reminderMinute: _normalizeMinute(
+        (map['reminderMinute'] as num?)?.toInt() ?? 0,
+      ),
+      reminderCadenceDays: max(
+        1,
+        (map['reminderCadenceDays'] as num?)?.toInt() ?? 3,
+      ),
+      reminderTimezone: map['reminderTimezone'] as String?,
       reduceMotion: map['reduceMotion'] as bool? ?? false,
       privacyConsentCompleted:
           map['privacyConsentCompleted'] as bool? ?? map.isNotEmpty,
     );
   }
 }
+
+int _minutesAfterMidnight(int hour, int minute) {
+  return _normalizeHour(hour) * 60 + _normalizeMinute(minute);
+}
+
+int _normalizeHour(int value) => value.clamp(0, 23).toInt();
+
+int _normalizeMinute(int value) => value.clamp(0, 59).toInt();
 
 class InsightPreference {
   const InsightPreference({

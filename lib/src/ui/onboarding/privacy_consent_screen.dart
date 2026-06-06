@@ -152,10 +152,26 @@ class _PrivacyConsentScreenState extends ConsumerState<PrivacyConsentScreen> {
     final notifications = ref.read(notificationServiceProvider);
 
     try {
+      var nextSettings = widget.settings.copyWith(
+        privacyConsentCompleted: true,
+        offlineMode: true,
+        biometricLock: _useDeviceLock,
+        pinLock: _pinHash != null,
+        pinHash: _pinHash,
+        clearPinHash: _pinHash == null,
+        hiddenNotifications: true,
+        softReminders: false,
+      );
+
       if (_wantsReminders) {
         final granted = await notifications.requestPermissions();
         if (granted) {
-          await notifications.scheduleOccasionalReminders(hiddenContent: true);
+          nextSettings = nextSettings.copyWith(softReminders: true);
+          final scheduleResult = await notifications
+              .scheduleOccasionalReminders(settings: nextSettings);
+          nextSettings = nextSettings.copyWith(
+            reminderTimezone: scheduleResult.timezoneName,
+          );
           remindersEnabled = true;
         } else {
           notificationError = true;
@@ -165,16 +181,7 @@ class _PrivacyConsentScreenState extends ConsumerState<PrivacyConsentScreen> {
         await notifications.cancelOccasionalReminders();
       }
 
-      final nextSettings = widget.settings.copyWith(
-        privacyConsentCompleted: true,
-        offlineMode: true,
-        biometricLock: _useDeviceLock,
-        pinLock: _pinHash != null,
-        pinHash: _pinHash,
-        clearPinHash: _pinHash == null,
-        hiddenNotifications: true,
-        softReminders: remindersEnabled,
-      );
+      nextSettings = nextSettings.copyWith(softReminders: remindersEnabled);
       await ref
           .read(appControllerProvider.notifier)
           .updateSettings(nextSettings);
