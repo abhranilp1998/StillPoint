@@ -40,7 +40,7 @@ Future<void> main() async {
         habitRepositoryProvider.overrideWithValue(repository),
         notificationServiceProvider.overrideWithValue(notifications),
       ],
-      child: const RecoveryApp(),
+      child: const StillpointApp(),
     ),
   );
 }

@@ -1,5 +1,5 @@
-import 'package:adaptive_recovery_tracker/src/core/models.dart';
-import 'package:adaptive_recovery_tracker/src/core/quantity_math.dart';
+import 'package:stillpoint/src/core/models.dart';
+import 'package:stillpoint/src/core/quantity_math.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

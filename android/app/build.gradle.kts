@@ -34,7 +34,7 @@ gradle.taskGraph.whenReady(
 )
 
 android {
-    namespace = "com.privatewellness.adaptive_recovery_tracker"
+    namespace = "com.privatewellness.stillpoint"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -49,7 +49,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.privatewellness.adaptive_recovery_tracker"
+        applicationId = "com.privatewellness.stillpoint"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

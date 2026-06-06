@@ -1,4 +1,4 @@
-package com.privatewellness.adaptive_recovery_tracker
+package com.privatewellness.stillpoint
 
 import android.content.pm.ApplicationInfo
 import android.graphics.Color

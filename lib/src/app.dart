@@ -7,8 +7,8 @@ import 'theme/app_theme.dart';
 import 'ui/app_shell.dart';
 import 'ui/onboarding/privacy_consent_screen.dart';
 
-class RecoveryApp extends ConsumerWidget {
-  const RecoveryApp({super.key});
+class StillpointApp extends ConsumerWidget {
+  const StillpointApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

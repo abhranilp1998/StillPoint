@@ -2,21 +2,21 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "StillPoint Debug",
+      "name": "Stillpoint Debug",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
       "flutterMode": "debug"
     },
     {
-      "name": "StillPoint Profile",
+      "name": "Stillpoint Profile",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
       "flutterMode": "profile"
     },
     {
-      "name": "StillPoint Release",
+      "name": "Stillpoint Release",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",

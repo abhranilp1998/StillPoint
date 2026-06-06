@@ -127,7 +127,7 @@ class NotificationService {
   Future<void> showSoftReminder({required bool hiddenContent}) async {
     await _plugin.show(
       id: _previewReminderId,
-      title: hiddenContent ? 'Mindful check-in' : 'You are allowed to go slow',
+      title: hiddenContent ? 'Quiet check-in' : 'You are allowed to go slow',
       body: hiddenContent
           ? 'Open the app when you have a quiet moment.'
           : 'A tiny log is enough. All local, no judgment.',
@@ -162,8 +162,8 @@ class NotificationService {
 
   NotificationDetails _reminderDetails() {
     const android = AndroidNotificationDetails(
-      'mindful_recovery_soft_reminders',
-      'Gentle check-ins',
+      'stillpoint_soft_reminders',
+      'Stillpoint check-ins',
       channelDescription:
           'Optional, warm reminders for calm local self-check-ins.',
       importance: Importance.defaultImportance,

@@ -21,7 +21,7 @@ class ExportService {
   static Future<ExportResult> exportCsv(AppState state) async {
     final directory = await getTemporaryDirectory();
     final path =
-        '${directory.path}/mindful_recovery_${_fileStamp.format(DateTime.now())}.csv';
+        '${directory.path}/stillpoint_${_fileStamp.format(DateTime.now())}.csv';
     final rows = _rows(state);
     final csvText = csv.encode(rows);
     await File(path).writeAsString(csvText);
@@ -31,7 +31,7 @@ class ExportService {
   static Future<ExportResult> exportXlsx(AppState state) async {
     final directory = await getTemporaryDirectory();
     final path =
-        '${directory.path}/mindful_recovery_${_fileStamp.format(DateTime.now())}.xlsx';
+        '${directory.path}/stillpoint_${_fileStamp.format(DateTime.now())}.xlsx';
     final excel = Excel.createExcel();
     const sheetName = 'Logs';
     excel.rename('Sheet1', sheetName);
@@ -57,7 +57,7 @@ class ExportService {
   static Future<void> shareExport(ExportResult result) {
     return SharePlus.instance.share(
       ShareParams(
-        text: 'Mindful recovery export (${result.format})',
+        text: 'Stillpoint export (${result.format})',
         files: [XFile(result.path)],
       ),
     );
