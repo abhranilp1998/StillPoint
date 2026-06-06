@@ -94,6 +94,23 @@ class _QuickLogSheetState extends ConsumerState<QuickLogSheet> {
       child: SingleChildScrollView(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 180),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            if (MediaQuery.disableAnimationsOf(context)) {
+              return FadeTransition(opacity: animation, child: child);
+            }
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, .03),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            );
+          },
           child: _habit == null
               ? _HabitPicker(
                   habits: habits,
@@ -180,15 +197,28 @@ class _QuickLogSheetState extends ConsumerState<QuickLogSheet> {
                       sizeCurve: Curves.easeOutCubic,
                     ),
                     const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: _saving ? null : _save,
-                      icon: _saving
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.check_rounded),
-                      label: const Text('Save log'),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: FilledButton.icon(
+                        onPressed: _saving ? null : _save,
+                        icon: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 160),
+                          child: _saving
+                              ? const SizedBox.square(
+                                  key: ValueKey('saving'),
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.check_rounded,
+                                  key: ValueKey('ready'),
+                                ),
+                        ),
+                        label: const Text('Save log'),
+                      ),
                     ),
                   ],
                 ),
@@ -339,6 +369,7 @@ Future<double?> _askForCustomQuantity(
       ),
     ),
   );
+  await Future<void>.delayed(const Duration(milliseconds: 250));
   controller.dispose();
   return result;
 }
@@ -415,6 +446,7 @@ Future<double?> _askForUnitCost(BuildContext context, Habit habit) async {
       ),
     ),
   );
+  await Future<void>.delayed(const Duration(milliseconds: 250));
   controller.dispose();
   return result;
 }
@@ -433,19 +465,47 @@ class _LogCostPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final hasCost = cost != null;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .38),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.tertiaryContainer.withValues(alpha: hasCost ? .48 : .22),
+            scheme.surfaceContainerHighest.withValues(alpha: .54),
+          ],
+        ),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: .55),
+          color: hasCost
+              ? scheme.tertiary.withValues(alpha: .28)
+              : scheme.outlineVariant.withValues(alpha: .55),
         ),
+        boxShadow: [
+          if (hasCost)
+            BoxShadow(
+              color: scheme.tertiary.withValues(alpha: .10),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
-            Icon(Icons.savings_outlined, color: theme.colorScheme.primary),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.tertiary.withValues(alpha: .14),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(7),
+                child: Icon(Icons.savings_outlined, color: scheme.tertiary),
+              ),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -453,7 +513,8 @@ class _LogCostPreview extends StatelessWidget {
                     ? 'Add a unit cost if money is part of the pattern.'
                     : 'This log adds about ${_formatMoney(cost!)}.',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: hasCost ? FontWeight.w700 : null,
                 ),
               ),
             ),
@@ -660,67 +721,95 @@ class _QuantityPicker extends StatelessWidget {
     final cost = habit.costPerUnit == null || habit.costPerUnit! <= 0
         ? null
         : quantity * habit.costPerUnit!;
+    final scheme = theme.colorScheme;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Quantity', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final preset in presets)
-              ChoiceChip(
-                selected: sameQuantity(quantity, preset.value),
-                label: Text('${preset.label} ${formatQuantity(preset.value)}'),
-                onSelected: (_) => onChanged(preset.value),
-              ),
-            ChoiceChip(
-              selected: !matchedPreset,
-              avatar: const Icon(Icons.tune_rounded, size: 16),
-              label: const Text('Custom'),
-              onSelected: (_) async {
-                final value = await _askForCustomQuantity(
-                  context,
-                  habit,
-                  quantity,
-                );
-                if (value != null) onChanged(value);
-              },
-            ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.surfaceContainerHighest.withValues(alpha: .46),
+            scheme.primaryContainer.withValues(alpha: .18),
           ],
         ),
-        const SizedBox(height: 12),
-        Row(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.outlineVariant.withValues(alpha: .44)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            IconButton.filledTonal(
-              tooltip: 'Decrease',
-              onPressed: canDecreaseQuantity(habit, quantity)
-                  ? () => onChanged(decreaseQuantity(habit, quantity))
-                  : null,
-              icon: const Icon(Icons.remove_rounded),
-            ),
-            Expanded(
-              child: Center(
-                child: Text(
-                  '${formatQuantity(quantity)} ${habit.unit}',
-                  style: theme.textTheme.headlineMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+            Text('Quantity', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final preset in presets)
+                  ChoiceChip(
+                    selected: sameQuantity(quantity, preset.value),
+                    label: Text(
+                      '${preset.label} ${formatQuantity(preset.value)}',
+                    ),
+                    onSelected: (_) => onChanged(preset.value),
+                  ),
+                ChoiceChip(
+                  selected: !matchedPreset,
+                  avatar: const Icon(Icons.tune_rounded, size: 16),
+                  label: const Text('Custom'),
+                  onSelected: (_) async {
+                    final value = await _askForCustomQuantity(
+                      context,
+                      habit,
+                      quantity,
+                    );
+                    if (value != null) onChanged(value);
+                  },
                 ),
-              ),
+              ],
             ),
-            IconButton.filledTonal(
-              tooltip: 'Increase',
-              onPressed: () => onChanged(increaseQuantity(habit, quantity)),
-              icon: const Icon(Icons.add_rounded),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                IconButton.filledTonal(
+                  tooltip: 'Decrease',
+                  onPressed: canDecreaseQuantity(habit, quantity)
+                      ? () => onChanged(decreaseQuantity(habit, quantity))
+                      : null,
+                  icon: const Icon(Icons.remove_rounded),
+                ),
+                Expanded(
+                  child: Center(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      child: Text(
+                        '${formatQuantity(quantity)} ${habit.unit}',
+                        key: ValueKey(quantity),
+                        style: theme.textTheme.headlineMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton.filledTonal(
+                  tooltip: 'Increase',
+                  onPressed: () => onChanged(increaseQuantity(habit, quantity)),
+                  icon: const Icon(Icons.add_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _LogCostPreview(
+              habit: habit,
+              cost: cost,
+              onSetUnitCost: onSetUnitCost,
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        _LogCostPreview(habit: habit, cost: cost, onSetUnitCost: onSetUnitCost),
-      ],
+      ),
     );
   }
 }

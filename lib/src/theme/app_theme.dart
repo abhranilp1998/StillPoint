@@ -107,7 +107,11 @@ class AppTheme {
         selectedColor: scheme.primaryContainer.withValues(alpha: .82),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         side: BorderSide(color: scheme.outlineVariant.withValues(alpha: .55)),
-        labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+        checkmarkColor: scheme.primary,
+        labelStyle: TextStyle(
+          color: scheme.onSurface,
+          fontWeight: FontWeight.w700,
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,

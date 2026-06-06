@@ -57,21 +57,26 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-            child: _HistoryControls(
-              controller: _searchController,
-              sort: _sort,
-              range: _range,
-              exporting: _exporting,
-              onSortChanged: (value) => setState(() => _sort = value),
-              onPickRange: _pickRange,
-              onClearRange: () => setState(() => _range = null),
-              onExportCsv: state == null
-                  ? null
-                  : () =>
-                        _export(state.copyWith(entries: entries), xlsx: false),
-              onExportXlsx: state == null
-                  ? null
-                  : () => _export(state.copyWith(entries: entries), xlsx: true),
+            child: MotionReveal(
+              child: _HistoryControls(
+                controller: _searchController,
+                sort: _sort,
+                range: _range,
+                exporting: _exporting,
+                onSortChanged: (value) => setState(() => _sort = value),
+                onPickRange: _pickRange,
+                onClearRange: () => setState(() => _range = null),
+                onExportCsv: state == null
+                    ? null
+                    : () => _export(
+                        state.copyWith(entries: entries),
+                        xlsx: false,
+                      ),
+                onExportXlsx: state == null
+                    ? null
+                    : () =>
+                          _export(state.copyWith(entries: entries), xlsx: true),
+              ),
             ),
           ),
         ),
@@ -123,19 +128,25 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   16,
                   index == entries.length - 1 ? 120 : 0,
                 ),
-                child: _HistoryRow(
-                  entry: entry,
-                  habit: habit,
-                  onEdit: () =>
-                      showEntryEditorSheet(context, entry: entry, habit: habit),
-                  onOpenHabit: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => HabitDetailScreen(habitId: habit.id),
+                child: MotionReveal(
+                  delay: Duration(milliseconds: (index % 8) * 24),
+                  child: _HistoryRow(
+                    entry: entry,
+                    habit: habit,
+                    onEdit: () => showEntryEditorSheet(
+                      context,
+                      entry: entry,
+                      habit: habit,
                     ),
+                    onOpenHabit: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => HabitDetailScreen(habitId: habit.id),
+                      ),
+                    ),
+                    onDelete: () => ref
+                        .read(appControllerProvider.notifier)
+                        .deleteEntry(entry.id),
                   ),
-                  onDelete: () => ref
-                      .read(appControllerProvider.notifier)
-                      .deleteEntry(entry.id),
                 ),
               );
             },
@@ -467,100 +478,139 @@ class _HistoryRow extends StatelessWidget {
     final theme = Theme.of(context);
     final date = DateFormat('MMM d, h:mm a').format(entry.loggedAt);
     final cost = entry.estimatedCostFor(habit);
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
+    final color = Color(habit.colorValue);
+    return CalmCard(
       onTap: onEdit,
-      child: CalmCard(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: Color(habit.colorValue).withValues(alpha: .16),
-              child: Icon(
-                habitIcon(habit.category),
-                color: Color(habit.colorValue),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          habit.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium,
+      semanticLabel: 'Edit ${habit.name} log',
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          color.withValues(
+            alpha: theme.brightness == Brightness.dark ? .16 : .07,
+          ),
+          theme.colorScheme.surfaceContainerLow.withValues(alpha: .96),
+        ],
+      ),
+      borderColor: color.withValues(alpha: .16),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: color.withValues(alpha: .16),
+            child: Icon(habitIcon(habit.category), color: color),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        habit.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium,
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${entry.quantity.toStringAsFixed(entry.quantity == entry.quantity.roundToDouble() ? 0 : 1)} ${habit.unit}',
+                          style: theme.textTheme.labelLarge,
                         ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${entry.quantity.toStringAsFixed(entry.quantity == entry.quantity.roundToDouble() ? 0 : 1)} ${habit.unit}',
-                            style: theme.textTheme.labelLarge,
-                          ),
-                          if (cost != null)
-                            Text(
-                              _formatMoney(cost),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      Text(date),
-                      if (entry.trigger != null) Text(entry.trigger!),
-                      if (entry.mood != null)
-                        Text('Mood ${moodLabel(entry.mood)}'),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuButton<String>(
-              tooltip: 'Row actions',
-              onSelected: (value) {
-                if (value == 'edit') onEdit();
-                if (value == 'tracker') onOpenHabit();
-                if (value == 'delete') onDelete();
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(
-                  value: 'edit',
-                  child: ListTile(
-                    leading: Icon(Icons.edit_outlined),
-                    title: Text('Edit log'),
-                  ),
+                        if (cost != null) _CostChip(value: _formatMoney(cost)),
+                      ],
+                    ),
+                  ],
                 ),
-                PopupMenuItem(
-                  value: 'tracker',
-                  child: ListTile(
-                    leading: Icon(Icons.open_in_new_rounded),
-                    title: Text('Tracker details'),
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: ListTile(
-                    leading: Icon(Icons.delete_outline_rounded),
-                    title: Text('Clear log'),
-                  ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    Text(date),
+                    if (entry.trigger != null) Text(entry.trigger!),
+                    if (entry.mood != null)
+                      Text('Mood ${moodLabel(entry.mood)}'),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Row actions',
+            onSelected: (value) {
+              if (value == 'edit') onEdit();
+              if (value == 'tracker') onOpenHabit();
+              if (value == 'delete') onDelete();
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'edit',
+                child: ListTile(
+                  leading: Icon(Icons.edit_outlined),
+                  title: Text('Edit log'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'tracker',
+                child: ListTile(
+                  leading: Icon(Icons.open_in_new_rounded),
+                  title: Text('Tracker details'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: ListTile(
+                  leading: Icon(Icons.delete_outline_rounded),
+                  title: Text('Clear log'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CostChip extends StatelessWidget {
+  const _CostChip({required this.value});
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 3),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: scheme.tertiaryContainer.withValues(alpha: .58),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: scheme.tertiary.withValues(alpha: .16)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.savings_outlined, size: 13, color: scheme.tertiary),
+              const SizedBox(width: 4),
+              Text(
+                value,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onTertiaryContainer,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -53,51 +53,60 @@ class _PrivacyConsentScreenState extends ConsumerState<PrivacyConsentScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.verified_user_outlined,
-                      color: scheme.primary,
-                      size: 40,
+                    const MotionReveal(child: _PrivacyWelcomeCard()),
+                    const SizedBox(height: 14),
+                    const MotionReveal(
+                      delay: Duration(milliseconds: 55),
+                      child: _LocalStorageCard(),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Your space stays yours',
-                      style: theme.textTheme.headlineLarge,
+                    const SizedBox(height: 12),
+                    MotionReveal(
+                      delay: const Duration(milliseconds: 110),
+                      child: _LockSetupCard(
+                        pinEnabled: _pinHash != null,
+                        deviceLockEnabled: _useDeviceLock,
+                        onPinChanged: _setPinEnabled,
+                        onDeviceLockChanged: _setDeviceLockEnabled,
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'A few privacy choices before Stillpoint opens.',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                    const SizedBox(height: 12),
+                    MotionReveal(
+                      delay: const Duration(milliseconds: 165),
+                      child: _ReminderConsentCard(
+                        wantsReminders: _wantsReminders,
+                        onChanged: (value) =>
+                            setState(() => _wantsReminders = value),
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const _LocalStorageCard(),
-                    const SizedBox(height: 12),
-                    _LockSetupCard(
-                      pinEnabled: _pinHash != null,
-                      deviceLockEnabled: _useDeviceLock,
-                      onPinChanged: _setPinEnabled,
-                      onDeviceLockChanged: _setDeviceLockEnabled,
-                    ),
-                    const SizedBox(height: 12),
-                    _ReminderConsentCard(
-                      wantsReminders: _wantsReminders,
-                      onChanged: (value) =>
-                          setState(() => _wantsReminders = value),
-                    ),
-                    const SizedBox(height: 20),
-                    FilledButton.icon(
-                      onPressed: _saving ? null : _finish,
-                      icon: _saving
-                          ? SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: scheme.onPrimary,
-                              ),
-                            )
-                          : const Icon(Icons.check_rounded),
-                      label: Text(_saving ? 'Saving choices' : 'Continue'),
+                    MotionReveal(
+                      delay: const Duration(milliseconds: 220),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: FilledButton.icon(
+                          onPressed: _saving ? null : _finish,
+                          icon: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 160),
+                            child: _saving
+                                ? SizedBox.square(
+                                    key: const ValueKey('saving'),
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: scheme.onPrimary,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.check_rounded,
+                                    key: ValueKey('ready'),
+                                  ),
+                          ),
+                          label: Text(
+                            _saving ? 'Saving choices' : 'Enter StillPoint',
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -206,6 +215,59 @@ class _PrivacyConsentScreenState extends ConsumerState<PrivacyConsentScreen> {
   }
 }
 
+class _PrivacyWelcomeCard extends StatelessWidget {
+  const _PrivacyWelcomeCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return CalmCard(
+      padding: const EdgeInsets.all(20),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          scheme.primaryContainer.withValues(alpha: .76),
+          scheme.secondaryContainer.withValues(alpha: .46),
+          scheme.surfaceContainerHighest.withValues(alpha: .66),
+        ],
+      ),
+      borderColor: scheme.primary.withValues(alpha: .22),
+      glowColor: scheme.primary,
+      glowIntensity: .24,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: .14),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(9),
+              child: Icon(
+                Icons.verified_user_outlined,
+                color: scheme.primary,
+                size: 30,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('Your space stays yours', style: theme.textTheme.headlineLarge),
+          const SizedBox(height: 8),
+          Text(
+            'A few private, local-first choices before StillPoint opens.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LocalStorageCard extends StatelessWidget {
   const _LocalStorageCard();
 
@@ -214,6 +276,8 @@ class _LocalStorageCard extends StatelessWidget {
     final theme = Theme.of(context);
     return CalmCard(
       color: theme.colorScheme.primaryContainer.withValues(alpha: .5),
+      glowColor: theme.colorScheme.primary,
+      glowIntensity: .08,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -63,19 +63,33 @@ class HabitDetailScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _HabitHero(habit: habit, entries: entries),
-                  const SizedBox(height: 16),
-                  _DetailChart(entries: entries),
-                  const SizedBox(height: 16),
-                  _RiskCard(profile: profile),
-                  const SizedBox(height: 16),
-                  _ResourcesCard(
-                    habit: habit,
-                    entries: entries,
-                    profile: profile,
+                  MotionReveal(
+                    child: _HabitHero(habit: habit, entries: entries),
                   ),
                   const SizedBox(height: 16),
-                  _RecentLogs(habit: habit, entries: entries),
+                  MotionReveal(
+                    delay: const Duration(milliseconds: 60),
+                    child: _DetailChart(entries: entries),
+                  ),
+                  const SizedBox(height: 16),
+                  MotionReveal(
+                    delay: const Duration(milliseconds: 120),
+                    child: _RiskCard(profile: profile),
+                  ),
+                  const SizedBox(height: 16),
+                  MotionReveal(
+                    delay: const Duration(milliseconds: 180),
+                    child: _ResourcesCard(
+                      habit: habit,
+                      entries: entries,
+                      profile: profile,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  MotionReveal(
+                    delay: const Duration(milliseconds: 240),
+                    child: _RecentLogs(habit: habit, entries: entries),
+                  ),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -99,7 +113,7 @@ class _HabitHero extends ConsumerWidget {
     final total = entries.totalQuantity;
     final estimatedCost = entries.fold<double>(
       0,
-      (value, entry) => value + entry.quantity * (habit.costPerUnit ?? 0),
+      (value, entry) => value + (entry.estimatedCostFor(habit) ?? 0),
     );
     final last = entries.isEmpty
         ? 'No logs yet'
@@ -171,14 +185,13 @@ class _HabitHero extends ConsumerWidget {
                 value: habit.unit,
                 icon: Icons.straighten_rounded,
               ),
-              MetricTile(
-                label: 'Could stay with you',
-                value: habit.costPerUnit == null
-                    ? 'Set cost'
-                    : _formatMoney(estimatedCost),
-                icon: Icons.savings_outlined,
-              ),
             ],
+          ),
+          const SizedBox(height: 12),
+          _CostReflectionPanel(
+            habit: habit,
+            entries: entries,
+            estimatedCost: estimatedCost,
           ),
           const SizedBox(height: 12),
           Align(
@@ -201,8 +214,6 @@ class _HabitHero extends ConsumerWidget {
         ? value.toInt().toString()
         : value.toStringAsFixed(1);
   }
-
-  String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';
 
   Future<void> _editCost(BuildContext context, WidgetRef ref) async {
     final controller = TextEditingController(
@@ -263,6 +274,7 @@ class _HabitHero extends ConsumerWidget {
         ],
       ),
     );
+    await Future<void>.delayed(const Duration(milliseconds: 250));
     controller.dispose();
     if (result == 'cancel') return;
     if (result == null) {
@@ -276,6 +288,101 @@ class _HabitHero extends ConsumerWidget {
     await ref
         .read(appControllerProvider.notifier)
         .updateHabit(habit.copyWith(costPerUnit: cost));
+  }
+}
+
+class _CostReflectionPanel extends StatelessWidget {
+  const _CostReflectionPanel({
+    required this.habit,
+    required this.entries,
+    required this.estimatedCost,
+  });
+
+  final Habit habit;
+  final List<UsageEntry> entries;
+  final double estimatedCost;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final hasCost = habit.costPerUnit != null && habit.costPerUnit! > 0;
+    return CalmCard(
+      padding: const EdgeInsets.all(16),
+      glowColor: scheme.tertiary,
+      glowIntensity: hasCost ? .26 : .08,
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          scheme.tertiaryContainer.withValues(alpha: hasCost ? .48 : .22),
+          scheme.surfaceContainerHighest.withValues(alpha: .58),
+        ],
+      ),
+      borderColor: scheme.tertiary.withValues(alpha: hasCost ? .30 : .16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: scheme.tertiary.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Icon(Icons.savings_outlined, color: scheme.tertiary),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Could stay with you',
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+              Text(
+                hasCost ? _formatMoney(estimatedCost) : 'Set cost',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: scheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            hasCost
+                ? 'This is an estimate, not a verdict. It turns the pattern into one more choice you can see.'
+                : 'Add a unit cost if money is part of this pattern. The app will keep it local.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Chip(
+                avatar: const Icon(Icons.attach_money_rounded, size: 17),
+                label: Text(
+                  hasCost
+                      ? '${_formatMoney(habit.costPerUnit!)} per ${habit.unit}'
+                      : 'No unit cost yet',
+                ),
+              ),
+              Chip(
+                avatar: const Icon(Icons.receipt_long_outlined, size: 17),
+                label: Text(
+                  '${entries.length} log${entries.length == 1 ? '' : 's'}',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -303,6 +410,15 @@ class _DetailChart extends StatelessWidget {
     ];
     final maxY = totals.fold<double>(1, (a, b) => a > b ? a : b);
     return CalmCard(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          theme.colorScheme.secondaryContainer.withValues(alpha: .20),
+          theme.colorScheme.surfaceContainerLow.withValues(alpha: .96),
+        ],
+      ),
+      borderColor: theme.colorScheme.secondary.withValues(alpha: .14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -365,6 +481,8 @@ class _RiskCard extends StatelessWidget {
     final theme = Theme.of(context);
     return CalmCard(
       color: theme.colorScheme.errorContainer.withValues(alpha: .22),
+      glowColor: theme.colorScheme.error,
+      glowIntensity: .08,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

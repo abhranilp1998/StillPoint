@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 
 import '../widgets/adaptive_scaffold.dart';
 
-class SupportScreen extends StatelessWidget {
-  const SupportScreen({super.key});
+class SanctuaryScreen extends StatelessWidget {
+  const SanctuaryScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -15,19 +15,28 @@ class SupportScreen extends StatelessWidget {
       backgroundColor: theme.scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
-          const SliverAppBar(pinned: true, title: Text('Support')),
+          const SliverAppBar(pinned: true, title: Text('Sanctuary')),
           SliverToBoxAdapter(
             child: ScreenPadding(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: const [
-                  _SlowModeHeader(),
+                  MotionReveal(child: _SlowModeHeader()),
                   SizedBox(height: 14),
-                  BreathingTimer(),
+                  MotionReveal(
+                    delay: Duration(milliseconds: 60),
+                    child: BreathingTimer(),
+                  ),
                   SizedBox(height: 14),
-                  UrgeDelayCard(),
+                  MotionReveal(
+                    delay: Duration(milliseconds: 120),
+                    child: UrgeDelayCard(),
+                  ),
                   SizedBox(height: 14),
-                  GroundingPrompts(),
+                  MotionReveal(
+                    delay: Duration(milliseconds: 180),
+                    child: GroundingPrompts(),
+                  ),
                   SizedBox(height: 120),
                 ],
               ),
@@ -48,71 +57,58 @@ class _SlowModeHeader extends StatelessWidget {
     final scheme = theme.colorScheme;
     final isDark = scheme.brightness == Brightness.dark;
     final accent = isDark ? scheme.tertiary : const Color(0xFF9E4A24);
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? [
-                  scheme.surfaceContainerHigh,
-                  Color.alphaBlend(
-                    scheme.tertiary.withValues(alpha: .16),
-                    scheme.surfaceContainer,
-                  ),
-                ]
-              : const [Color(0xFFF4DED2), Color(0xFFEED1C0)],
-        ),
-        border: Border.all(
-          color: isDark
-              ? scheme.tertiary.withValues(alpha: .22)
-              : const Color(0xFFDAB9A8),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.shadowColor.withValues(alpha: .08),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+    return CalmCard(
+      padding: const EdgeInsets.all(20),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: isDark
+            ? [
+                scheme.surfaceContainerHigh,
+                Color.alphaBlend(
+                  scheme.tertiary.withValues(alpha: .16),
+                  scheme.surfaceContainer,
+                ),
+              ]
+            : const [Color(0xFFF4DED2), Color(0xFFEED1C0)],
+      ),
+      borderColor: isDark
+          ? scheme.tertiary.withValues(alpha: .22)
+          : const Color(0xFFDAB9A8),
+      glowColor: scheme.tertiary,
+      glowIntensity: .28,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Icon(
+                Icons.self_improvement_rounded,
+                size: 26,
+                color: accent,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Sanctuary',
+            style: theme.textTheme.headlineMedium?.copyWith(
+              color: scheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'A quiet place to settle, wait out the wave, and choose the next small thing.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
           ),
         ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: .12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Icon(
-                  Icons.self_improvement_rounded,
-                  size: 26,
-                  color: accent,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'A quieter screen for intense moments',
-              style: theme.textTheme.headlineMedium?.copyWith(
-                color: scheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'No score, no reset, no pressure. Just enough structure to wait out the wave.',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -143,11 +139,21 @@ class _BreathingTimerState extends State<BreathingTimer> {
     final phase = _phase;
     return CalmCard(
       padding: const EdgeInsets.all(18),
+      glowColor: scheme.primary,
+      glowIntensity: _running ? .26 : .06,
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          scheme.primaryContainer.withValues(alpha: _running ? .34 : .18),
+          scheme.surfaceContainerLow.withValues(alpha: .96),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionHeader(
-            title: 'Breathing',
+            title: 'Steady breathing',
             trailing: Text(
               _seconds == 0 ? '12 sec cycle' : _formatElapsed(_seconds),
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -282,10 +288,20 @@ class _UrgeDelayCardState extends State<UrgeDelayCard> {
     final running = _remaining > 0;
     return CalmCard(
       padding: const EdgeInsets.all(18),
+      glowColor: scheme.tertiary,
+      glowIntensity: running ? .24 : .05,
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          scheme.tertiaryContainer.withValues(alpha: running ? .34 : .16),
+          scheme.surfaceContainerLow.withValues(alpha: .96),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeader(title: 'Delay timer'),
+          const SectionHeader(title: 'Pause timer'),
           const SizedBox(height: 8),
           Text(
             running
@@ -406,8 +422,18 @@ class GroundingPrompts extends StatelessWidget {
               ),
               itemBuilder: (context, index) {
                 final prompt = prompts[index];
+                final scheme = Theme.of(context).colorScheme;
                 return CalmCard(
                   padding: const EdgeInsets.all(14),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      scheme.secondaryContainer.withValues(alpha: .24),
+                      scheme.surfaceContainerLow.withValues(alpha: .94),
+                    ],
+                  ),
+                  borderColor: scheme.secondary.withValues(alpha: .16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
