@@ -1,3 +1,4 @@
+import java.io.File
 import org.gradle.api.execution.TaskExecutionGraph
 import org.gradle.kotlin.dsl.closureOf
 import java.util.Properties
@@ -10,25 +11,57 @@ plugins {
 }
 
 val releaseKeystoreProperties = Properties()
-val releaseKeystorePropertiesFile = rootProject.file("key.properties")
-if (releaseKeystorePropertiesFile.exists()) {
+val repositoryRootDir = rootProject.projectDir.parentFile
+val releaseKeystorePropertiesCandidates = listOf(
+    rootProject.file("key.properties"),
+    File(repositoryRootDir, "keys/key.properties")
+)
+val releaseKeystorePropertiesFile = releaseKeystorePropertiesCandidates.firstOrNull { it.exists() }
+if (releaseKeystorePropertiesFile != null) {
     releaseKeystorePropertiesFile.inputStream().use { releaseKeystoreProperties.load(it) }
 }
 
 fun releaseSigningValue(name: String): String? =
     releaseKeystoreProperties.getProperty(name)?.takeIf { it.isNotBlank() }
 
+fun releaseSigningFile(path: String): File {
+    val requestedFile = File(path)
+    if (requestedFile.isAbsolute) {
+        return requestedFile
+    }
+
+    val propertiesDirectory = releaseKeystorePropertiesFile?.parentFile ?: rootProject.projectDir
+    return File(propertiesDirectory, path)
+}
+
 val releaseSigningKeys = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
-val hasReleaseSigning = releaseSigningKeys.all { releaseSigningValue(it) != null }
+val hasReleaseSigningProperties = releaseSigningKeys.all { releaseSigningValue(it) != null }
+val releaseStoreFile = releaseSigningValue("storeFile")?.let { releaseSigningFile(it) }
+val hasReleaseSigning = hasReleaseSigningProperties && releaseStoreFile?.exists() == true
+
+fun releaseSigningFailureMessage(): String {
+    val setupHelp =
+        "Create android/key.properties from android/key.properties.example, " +
+            "or sync keys/key.properties from keys/key.properties.example. " +
+            "When using keys/key.properties, storeFile is relative to the keys folder unless absolute."
+
+    return when {
+        releaseKeystorePropertiesFile == null ->
+            "Release APKs and bundles must use the stable StillPoint signing key. $setupHelp"
+        !hasReleaseSigningProperties ->
+            "Release signing file ${releaseKeystorePropertiesFile.path} must define ${releaseSigningKeys.joinToString()}. $setupHelp"
+        releaseStoreFile?.exists() != true ->
+            "Release keystore file was not found at ${releaseStoreFile?.path}. $setupHelp"
+        else ->
+            "Release APKs and bundles must use the stable StillPoint signing key. $setupHelp"
+    }
+}
 
 gradle.taskGraph.whenReady(
     closureOf<TaskExecutionGraph> {
         val buildingRelease = allTasks.any { task -> task.name.contains("Release") }
         if (buildingRelease && !hasReleaseSigning) {
-            throw GradleException(
-                "Release APKs must use the stable sideload signing key. " +
-                    "Create android/key.properties from android/key.properties.example before building release."
-            )
+            throw GradleException(releaseSigningFailureMessage())
         }
     }
 )
@@ -61,7 +94,7 @@ android {
     signingConfigs {
         create("release") {
             if (hasReleaseSigning) {
-                storeFile = file(releaseSigningValue("storeFile")!!)
+                storeFile = releaseStoreFile
                 storePassword = releaseSigningValue("storePassword")!!
                 keyAlias = releaseSigningValue("keyAlias")!!
                 keyPassword = releaseSigningValue("keyPassword")!!

@@ -1,0 +1,13 @@
+# Copy this file to keys/key.properties when the StillPoint release keystore is available.
+# The storeFile value is relative to this folder unless it is an absolute path.
+
+#upload
+#storeFile=upload-keystore.jks
+#storePassword=d1d70f2df07c2a0e219b6d63c9d44b825610e36211035b63
+#keyAlias=upload
+#keyPassword=0e94e5e33aa5b120f0f475a6c2253e17a45f7ead1756a4a6
+
+storeFile=upload-keystore.jks
+storePassword=replace-with-keystore-password
+keyAlias=upload
+keyPassword=replace-with-key-password
