@@ -95,6 +95,27 @@ keyPassword=your-key-password
 When `key.properties` is inside `keys/`, `storeFile` is resolved relative to the
 `keys/` folder unless it is an absolute path. The release key alias is `upload`.
 
+### Release certificate subject
+
+The upload keystore certificate has a human-readable subject like this:
+
+```text
+CN=StillPoint, OU=StillPoint, O=Private Wellness, L=Kolkata, ST=West Bengal, C=IN
+```
+
+These fields describe the certificate owner shown by signing tools:
+
+- `CN` means common name, usually the product or signer name.
+- `OU` means organizational unit, often the team, product, or department.
+- `O` means organization.
+- `L`, `ST`, and `C` mean locality, state, and country.
+
+This subject is signing metadata only. It does not define the Android
+`applicationId`, iOS bundle ID, Play Store listing, or app display name. For
+Android update continuity, the important pieces are keeping the same release
+private key/certificate and the same `applicationId` after the first public
+release.
+
 If you need to generate a new upload keystore:
 
 ```sh

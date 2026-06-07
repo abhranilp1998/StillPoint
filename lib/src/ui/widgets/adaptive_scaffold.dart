@@ -285,15 +285,15 @@ class _AttentionGlowState extends State<AttentionGlow>
       animation: _controller,
       child: widget.child,
       builder: (context, child) {
-        final pulse = .48 + (_controller.value * .34);
+        final pulse = .38 + (_controller.value * .24);
         return DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: widget.borderRadius,
             boxShadow: [
               BoxShadow(
-                color: widget.color.withValues(alpha: .18 * pulse),
-                blurRadius: 18 + (12 * pulse),
-                spreadRadius: 1 + (2 * pulse),
+                color: widget.color.withValues(alpha: .14 * pulse),
+                blurRadius: 16 + (10 * pulse),
+                spreadRadius: .5 + (1.6 * pulse),
               ),
             ],
           ),

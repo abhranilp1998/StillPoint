@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/currency.dart';
 import '../../core/models.dart';
 import '../../core/quantity_math.dart';
 import '../../state/app_controller.dart';
@@ -306,7 +307,7 @@ class _EntryCostPreview extends StatelessWidget {
               child: Text(
                 cost == null
                     ? 'No cost attached to this log.'
-                    : '${_formatMoney(cost!)} for this log · ${_formatMoney(unitCost!)} per ${habit.unit}.',
+                    : '${formatMoney(cost!)} for this log · ${formatMoney(unitCost!)} per ${habit.unit}.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -318,8 +319,6 @@ class _EntryCostPreview extends StatelessWidget {
     );
   }
 }
-
-String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';
 
 class _ScaleChips extends StatelessWidget {
   const _ScaleChips({

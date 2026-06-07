@@ -130,7 +130,7 @@ void main() {
           UsageEntry(
             id: 'c$i',
             habitId: tracker.id,
-            loggedAt: weekStart.add(Duration(days: i, hours: 18)),
+            loggedAt: weekStart,
             quantity: 3,
           ),
       ],
@@ -178,7 +178,7 @@ void main() {
           UsageEntry(
             id: 'current$i',
             habitId: cannabis.id,
-            loggedAt: weekStart.add(Duration(days: i, hours: 20)),
+            loggedAt: weekStart,
             quantity: 4,
           ),
       ],

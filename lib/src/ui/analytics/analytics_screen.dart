@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/currency.dart';
 import '../../core/models.dart';
 import '../../services/analytics_service.dart';
 import '../../state/app_controller.dart';
@@ -87,7 +88,7 @@ class _SummaryGrid extends StatelessWidget {
           label: 'Could stay with you',
           value: analytics.habitsWithCost == 0
               ? 'Set cost'
-              : '\$${analytics.weekEstimatedCost.toStringAsFixed(2)}',
+              : formatMoney(analytics.weekEstimatedCost),
           icon: Icons.savings_outlined,
         ),
         MetricTile(

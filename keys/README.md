@@ -42,6 +42,19 @@ When `key.properties` is inside this folder, `storeFile` is resolved relative to
 this folder unless you provide an absolute path. The release key alias is
 `upload`.
 
+## Certificate subject
+
+The current upload keystore certificate identifies itself like this:
+
+```text
+CN=StillPoint, OU=StillPoint, O=Private Wellness, L=Kolkata, ST=West Bengal, C=IN
+```
+
+`CN` is the common name, `OU` is the organizational unit, and `O` is the
+organization. `L`, `ST`, and `C` are locality, state, and country. These values
+are human-readable signing metadata; they do not set the Android package name or
+the iOS bundle ID.
+
 ## Handling later
 
 Treat this folder as sensitive. Keep it in a private cloud/private repository so

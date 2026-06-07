@@ -315,7 +315,13 @@ class AppSettings {
     this.reminderTimezone,
     this.reduceMotion = false,
     this.privacyConsentCompleted = false,
+    this.moneyCurrencySymbol = defaultMoneyCurrencySymbol,
+    this.moneyCurrencyCode = defaultMoneyCurrencyCode,
+    this.moneyCurrencySetupCompleted = false,
   });
+
+  static const defaultMoneyCurrencySymbol = '₹';
+  static const defaultMoneyCurrencyCode = 'INR';
 
   final bool useSystemTheme;
   final bool darkMode;
@@ -336,6 +342,9 @@ class AppSettings {
   final String? reminderTimezone;
   final bool reduceMotion;
   final bool privacyConsentCompleted;
+  final String moneyCurrencySymbol;
+  final String moneyCurrencyCode;
+  final bool moneyCurrencySetupCompleted;
 
   int get quietStartMinutes =>
       _minutesAfterMidnight(quietStartHour, quietStartMinute);
@@ -378,6 +387,9 @@ class AppSettings {
     bool clearReminderTimezone = false,
     bool? reduceMotion,
     bool? privacyConsentCompleted,
+    String? moneyCurrencySymbol,
+    String? moneyCurrencyCode,
+    bool? moneyCurrencySetupCompleted,
   }) {
     return AppSettings(
       useSystemTheme: useSystemTheme ?? this.useSystemTheme,
@@ -407,6 +419,14 @@ class AppSettings {
       reduceMotion: reduceMotion ?? this.reduceMotion,
       privacyConsentCompleted:
           privacyConsentCompleted ?? this.privacyConsentCompleted,
+      moneyCurrencySymbol: _normalizeCurrencySymbol(
+        moneyCurrencySymbol ?? this.moneyCurrencySymbol,
+      ),
+      moneyCurrencyCode: _normalizeCurrencyCode(
+        moneyCurrencyCode ?? this.moneyCurrencyCode,
+      ),
+      moneyCurrencySetupCompleted:
+          moneyCurrencySetupCompleted ?? this.moneyCurrencySetupCompleted,
     );
   }
 
@@ -431,6 +451,9 @@ class AppSettings {
       'reminderTimezone': reminderTimezone,
       'reduceMotion': reduceMotion,
       'privacyConsentCompleted': privacyConsentCompleted,
+      'moneyCurrencySymbol': moneyCurrencySymbol,
+      'moneyCurrencyCode': moneyCurrencyCode,
+      'moneyCurrencySetupCompleted': moneyCurrencySetupCompleted,
     };
   }
 
@@ -469,6 +492,16 @@ class AppSettings {
       reduceMotion: map['reduceMotion'] as bool? ?? false,
       privacyConsentCompleted:
           map['privacyConsentCompleted'] as bool? ?? map.isNotEmpty,
+      moneyCurrencySymbol: _normalizeCurrencySymbol(
+        map['moneyCurrencySymbol'] as String? ??
+            AppSettings.defaultMoneyCurrencySymbol,
+      ),
+      moneyCurrencyCode: _normalizeCurrencyCode(
+        map['moneyCurrencyCode'] as String? ??
+            AppSettings.defaultMoneyCurrencyCode,
+      ),
+      moneyCurrencySetupCompleted:
+          map['moneyCurrencySetupCompleted'] as bool? ?? false,
     );
   }
 }
@@ -480,6 +513,16 @@ int _minutesAfterMidnight(int hour, int minute) {
 int _normalizeHour(int value) => value.clamp(0, 23).toInt();
 
 int _normalizeMinute(int value) => value.clamp(0, 59).toInt();
+
+String _normalizeCurrencySymbol(String value) {
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? AppSettings.defaultMoneyCurrencySymbol : trimmed;
+}
+
+String _normalizeCurrencyCode(String value) {
+  final trimmed = value.trim().toUpperCase();
+  return trimmed.isEmpty ? AppSettings.defaultMoneyCurrencyCode : trimmed;
+}
 
 class InsightPreference {
   const InsightPreference({

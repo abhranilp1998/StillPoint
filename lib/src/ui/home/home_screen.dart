@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/currency.dart';
 import '../../core/models.dart';
 import '../../services/analytics_service.dart';
 import '../../services/guidance_service.dart';
 import '../../services/insight_engine.dart';
+import '../../services/sanctuary_attention_service.dart';
 import '../../state/app_controller.dart';
 import '../habit/habit_detail_screen.dart';
 import '../logging/quick_log_sheet.dart';
@@ -58,11 +60,7 @@ class HomeScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     MotionReveal(
-                      child: _TodaySection(
-                        state: state,
-                        analytics: analytics,
-                        insights: insights,
-                      ),
+                      child: _TodaySection(state: state, analytics: analytics),
                     ),
                     const SizedBox(height: 14),
                     MotionReveal(
@@ -99,19 +97,16 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _TodaySection extends StatelessWidget {
-  const _TodaySection({
-    required this.state,
-    required this.analytics,
-    required this.insights,
-  });
+  const _TodaySection({required this.state, required this.analytics});
 
   final AppState state;
   final AnalyticsSnapshot analytics;
-  final List<BehaviorInsight> insights;
 
   @override
   Widget build(BuildContext context) {
-    final promptSanctuary = _shouldPromptSanctuary(state, insights);
+    final promptSanctuary = SanctuaryAttentionService.shouldDrawAttention(
+      state,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -126,34 +121,6 @@ class _TodaySection extends StatelessWidget {
           _MoneyReflectionCards(analytics: analytics),
         ],
       ],
-    );
-  }
-
-  bool _shouldPromptSanctuary(AppState state, List<BehaviorInsight> insights) {
-    final last = state.lastEntry;
-    if (last != null) {
-      final recent = DateTime.now().difference(last.loggedAt).inHours < 6;
-      final elevatedCraving = (last.craving ?? 0) >= 4;
-      final elevatedStress = (last.stress ?? 0) >= 4;
-      final lowMood = last.mood != null && last.mood! <= 2;
-      if (recent && (elevatedCraving || elevatedStress || lowMood)) {
-        return true;
-      }
-    }
-
-    final today = DateTime.now();
-    final todayLogs = state.entries.where(
-      (entry) =>
-          entry.loggedAt.year == today.year &&
-          entry.loggedAt.month == today.month &&
-          entry.loggedAt.day == today.day,
-    );
-    if (todayLogs.length >= 4) return true;
-
-    return insights.any(
-      (insight) =>
-          insight.kind == InsightKind.pattern ||
-          insight.kind == InsightKind.money,
     );
   }
 }
@@ -177,7 +144,7 @@ class _SanctuaryPromptButton extends StatelessWidget {
         child: FilledButton.tonalIcon(
           style: FilledButton.styleFrom(
             backgroundColor: drawAttention
-                ? scheme.tertiaryContainer.withValues(alpha: .88)
+                ? scheme.tertiaryContainer.withValues(alpha: .82)
                 : scheme.surfaceContainerHighest.withValues(alpha: .72),
             foregroundColor: drawAttention
                 ? scheme.onTertiaryContainer
@@ -225,19 +192,19 @@ class _MoneyReflectionCards extends StatelessWidget {
           children: [
             _MoneyMetricTile(
               label: 'Today cost',
-              value: _formatMoney(analytics.todayEstimatedCost),
+              value: formatMoney(analytics.todayEstimatedCost),
               icon: Icons.today_outlined,
               emphasis: analytics.todayEstimatedCost > 0,
             ),
             _MoneyMetricTile(
               label: '7-day total',
-              value: _formatMoney(analytics.sevenDayEstimatedCost),
+              value: formatMoney(analytics.sevenDayEstimatedCost),
               icon: Icons.date_range_outlined,
               emphasis: analytics.sevenDayEstimatedCost > 0,
             ),
             _MoneyMetricTile(
               label: 'Month-to-date',
-              value: _formatMoney(analytics.monthEstimatedCost),
+              value: formatMoney(analytics.monthEstimatedCost),
               icon: Icons.calendar_month_outlined,
               emphasis: analytics.monthEstimatedCost > 0,
             ),
@@ -245,7 +212,7 @@ class _MoneyReflectionCards extends StatelessWidget {
               label: analytics.topCostHabitName ?? 'Top cost tracker',
               value: analytics.topCostHabitName == null
                   ? 'None yet'
-                  : _formatMoney(analytics.topCostHabitAmount),
+                  : formatMoney(analytics.topCostHabitAmount),
               icon: Icons.savings_outlined,
               emphasis: analytics.topCostHabitAmount > 0,
             ),
@@ -254,8 +221,6 @@ class _MoneyReflectionCards extends StatelessWidget {
       },
     );
   }
-
-  String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';
 }
 
 class _MoneyMetricTile extends StatelessWidget {
@@ -430,7 +395,7 @@ class _HeroSummary extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '${_formatMoney(analytics.weekEstimatedCost)} could have stayed with you this week.',
+                        '${formatMoney(analytics.weekEstimatedCost)} could have stayed with you this week.',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onPrimaryContainer,
                           fontWeight: FontWeight.w700,
@@ -446,8 +411,6 @@ class _HeroSummary extends StatelessWidget {
       ),
     );
   }
-
-  String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';
 }
 
 class _QuickLogSection extends StatelessWidget {

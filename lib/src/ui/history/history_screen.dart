@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/currency.dart';
 import '../../core/models.dart';
 import '../../services/export_service.dart';
 import '../../state/app_controller.dart';
@@ -522,7 +523,7 @@ class _HistoryRow extends StatelessWidget {
                           '${entry.quantity.toStringAsFixed(entry.quantity == entry.quantity.roundToDouble() ? 0 : 1)} ${habit.unit}',
                           style: theme.textTheme.labelLarge,
                         ),
-                        if (cost != null) _CostChip(value: _formatMoney(cost)),
+                        if (cost != null) _CostChip(value: formatMoney(cost)),
                       ],
                     ),
                   ],
@@ -616,5 +617,3 @@ class _CostChip extends StatelessWidget {
     );
   }
 }
-
-String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';

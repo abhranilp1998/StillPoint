@@ -199,6 +199,46 @@ class AppController extends AsyncNotifier<AppState> {
     await _repository.save(next);
   }
 
+  Future<void> confirmMoneyCurrency({
+    double? conversionRate,
+    String currencySymbol = AppSettings.defaultMoneyCurrencySymbol,
+    String currencyCode = AppSettings.defaultMoneyCurrencyCode,
+  }) async {
+    final current = await _current();
+    final rate = conversionRate == null || conversionRate <= 0
+        ? null
+        : conversionRate;
+    final nextSettings = current.settings.copyWith(
+      moneyCurrencySymbol: currencySymbol,
+      moneyCurrencyCode: currencyCode,
+      moneyCurrencySetupCompleted: true,
+    );
+    if (rate == null) {
+      final next = current.copyWith(settings: nextSettings);
+      state = AsyncData(next);
+      await _repository.save(next);
+      return;
+    }
+
+    final next = current.copyWith(
+      habits: [
+        for (final habit in current.habits)
+          habit.costPerUnit == null || habit.costPerUnit! <= 0
+              ? habit
+              : habit.copyWith(costPerUnit: habit.costPerUnit! * rate),
+      ],
+      entries: [
+        for (final entry in current.entries)
+          entry.unitCost == null || entry.unitCost! <= 0
+              ? entry
+              : entry.copyWith(unitCost: entry.unitCost! * rate),
+      ],
+      settings: nextSettings,
+    );
+    state = AsyncData(next);
+    await _repository.save(next);
+  }
+
   InsightPreference? _preferenceFor(AppState state, String insightId) {
     for (final preference in state.insightPreferences) {
       if (preference.id == insightId) return preference;

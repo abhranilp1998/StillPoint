@@ -9,6 +9,7 @@ import '../../services/security_service.dart';
 import '../../state/app_controller.dart';
 import '../security/pin_setup_dialog.dart';
 import '../widgets/adaptive_scaffold.dart';
+import '../widgets/money_currency_prompt.dart';
 
 class PrivacySettingsScreen extends ConsumerWidget {
   const PrivacySettingsScreen({super.key});
@@ -510,6 +511,21 @@ class _AppearanceCard extends ConsumerWidget {
             onChanged: (value) => ref
                 .read(appControllerProvider.notifier)
                 .updateSettings(settings.copyWith(reduceMotion: value)),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.savings_outlined),
+            title: const Text('Money display'),
+            subtitle: Text(
+              settings.moneyCurrencySetupCompleted
+                  ? 'Showing amounts as ${settings.moneyCurrencySymbol}.'
+                  : 'Choose whether saved numbers stay the same or convert.',
+            ),
+            trailing: TextButton(
+              onPressed: () =>
+                  showMoneyCurrencyPrompt(context, ref, requireChoice: false),
+              child: const Text('Review'),
+            ),
           ),
         ],
       ),

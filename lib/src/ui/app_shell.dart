@@ -10,7 +10,9 @@ import 'logging/quick_log_sheet.dart';
 import 'security/lock_screen.dart';
 import 'settings/privacy_settings_screen.dart';
 import 'trackers/tracker_catalog_screen.dart';
+import '../core/models.dart';
 import '../state/app_controller.dart';
+import 'widgets/money_currency_prompt.dart';
 
 class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key, this.initiallyUnlocked = false});
@@ -25,6 +27,7 @@ class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   int _index = 0;
   bool _unlocked = false;
+  bool _moneyCurrencyPromptShowing = false;
 
   static const _screens = [
     HomeScreen(),
@@ -73,6 +76,9 @@ class _AppShellState extends ConsumerState<AppShell>
     final settings = ref
         .watch(appControllerProvider)
         .maybeWhen(data: (state) => state.settings, orElse: () => null);
+    final appState = ref
+        .watch(appControllerProvider)
+        .maybeWhen(data: (state) => state, orElse: () => null);
     final lockEnabled =
         settings != null &&
         (settings.biometricLock ||
@@ -84,6 +90,8 @@ class _AppShellState extends ConsumerState<AppShell>
         onUnlocked: () => setState(() => _unlocked = true),
       );
     }
+
+    _scheduleMoneyCurrencyPrompt(appState);
 
     return PopScope(
       canPop: _index == 0,
@@ -138,6 +146,28 @@ class _AppShellState extends ConsumerState<AppShell>
         ),
       ),
     );
+  }
+
+  void _scheduleMoneyCurrencyPrompt(AppState? state) {
+    if (state == null ||
+        _moneyCurrencyPromptShowing ||
+        !shouldPromptForMoneyCurrency(state)) {
+      return;
+    }
+
+    _moneyCurrencyPromptShowing = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final latest = ref
+          .read(appControllerProvider)
+          .maybeWhen(data: (state) => state, orElse: () => null);
+      if (latest == null || !shouldPromptForMoneyCurrency(latest)) {
+        if (mounted) setState(() => _moneyCurrencyPromptShowing = false);
+        return;
+      }
+      await showMoneyCurrencyPrompt(context, ref);
+      if (mounted) setState(() => _moneyCurrencyPromptShowing = false);
+    });
   }
 }
 

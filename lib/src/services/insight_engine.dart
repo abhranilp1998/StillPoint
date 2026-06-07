@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import '../core/currency.dart';
 import '../core/models.dart';
 import 'analytics_service.dart';
 
@@ -760,7 +761,7 @@ String _formatQuantity(double value) {
       : value.toStringAsFixed(1);
 }
 
-String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';
+String _formatMoney(double value) => formatMoney(value);
 
 String _weekdayName(int weekday) {
   return switch (weekday) {

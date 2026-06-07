@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/currency.dart';
 import '../../core/habit_library.dart';
 import '../../core/models.dart';
 import '../../services/guidance_service.dart';
@@ -10,6 +11,7 @@ import '../../state/app_controller.dart';
 import '../logging/quick_log_sheet.dart';
 import '../widgets/adaptive_scaffold.dart';
 import '../widgets/habit_visuals.dart';
+import '../widgets/money_currency_prompt.dart';
 import 'entry_editor_sheet.dart';
 
 class HabitDetailScreen extends ConsumerWidget {
@@ -198,7 +200,7 @@ class _HabitHero extends ConsumerWidget {
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
               onPressed: () => _editCost(context, ref),
-              icon: const Icon(Icons.attach_money_rounded),
+              icon: const Icon(Icons.savings_outlined),
               label: Text(
                 habit.costPerUnit == null ? 'Set unit cost' : 'Edit unit cost',
               ),
@@ -216,6 +218,13 @@ class _HabitHero extends ConsumerWidget {
   }
 
   Future<void> _editCost(BuildContext context, WidgetRef ref) async {
+    final state = ref
+        .read(appControllerProvider)
+        .maybeWhen(data: (state) => state, orElse: () => null);
+    if (state != null && !state.settings.moneyCurrencySetupCompleted) {
+      await showMoneyCurrencyPrompt(context, ref);
+      if (!context.mounted) return;
+    }
     final controller = TextEditingController(
       text: habit.costPerUnit == null ? '' : habit.costPerUnit!.toString(),
     );
@@ -236,7 +245,7 @@ class _HabitHero extends ConsumerWidget {
               ),
               decoration: InputDecoration(
                 labelText: 'Cost per ${habit.unit}',
-                prefixText: '\$',
+                prefixText: AppSettings.defaultMoneyCurrencySymbol,
                 hintText: suggestedCost == null
                     ? 'Leave blank to remove'
                     : 'Try ${suggestedCost.toStringAsFixed(2)} if useful',
@@ -250,7 +259,7 @@ class _HabitHero extends ConsumerWidget {
                 },
                 icon: const Icon(Icons.auto_awesome_outlined),
                 label: Text(
-                  'Use local estimate \$${suggestedCost.toStringAsFixed(2)}',
+                  'Use starter estimate ${formatMoney(suggestedCost)}',
                 ),
               ),
             ],
@@ -343,7 +352,7 @@ class _CostReflectionPanel extends StatelessWidget {
                 ),
               ),
               Text(
-                hasCost ? _formatMoney(estimatedCost) : 'Set cost',
+                hasCost ? formatMoney(estimatedCost) : 'Set cost',
                 style: theme.textTheme.titleLarge?.copyWith(
                   color: scheme.onSurface,
                 ),
@@ -365,10 +374,10 @@ class _CostReflectionPanel extends StatelessWidget {
             runSpacing: 8,
             children: [
               Chip(
-                avatar: const Icon(Icons.attach_money_rounded, size: 17),
+                avatar: const Icon(Icons.savings_outlined, size: 17),
                 label: Text(
                   hasCost
-                      ? '${_formatMoney(habit.costPerUnit!)} per ${habit.unit}'
+                      ? '${formatMoney(habit.costPerUnit!)} per ${habit.unit}'
                       : 'No unit cost yet',
                 ),
               ),
@@ -624,7 +633,7 @@ class _RecentLogs extends StatelessWidget {
                     if (entry.trigger != null) entry.trigger!,
                     if (entry.mood != null) moodLabel(entry.mood),
                     if (entry.estimatedCostFor(habit) != null)
-                      _formatMoney(entry.estimatedCostFor(habit)!),
+                      formatMoney(entry.estimatedCostFor(habit)!),
                   ].join(' • '),
                 ),
                 trailing: const Icon(Icons.edit_outlined),
@@ -636,5 +645,3 @@ class _RecentLogs extends StatelessWidget {
     );
   }
 }
-
-String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';

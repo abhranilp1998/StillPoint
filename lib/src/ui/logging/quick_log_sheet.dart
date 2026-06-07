@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/currency.dart';
 import '../../core/habit_library.dart';
 import '../../core/models.dart';
 import '../../core/quantity_math.dart';
 import '../../state/app_controller.dart';
 import '../habit/entry_editor_sheet.dart';
 import '../widgets/habit_visuals.dart';
+import '../widgets/money_currency_prompt.dart';
 
 Future<void> showQuickLogSheet(BuildContext context, {Habit? initialHabit}) {
   HapticFeedback.selectionClick();
@@ -297,6 +299,13 @@ class _QuickLogSheetState extends ConsumerState<QuickLogSheet> {
   Future<void> _setUnitCost() async {
     final habit = _habit;
     if (habit == null) return;
+    final state = ref
+        .read(appControllerProvider)
+        .maybeWhen(data: (state) => state, orElse: () => null);
+    if (state != null && !state.settings.moneyCurrencySetupCompleted) {
+      await showMoneyCurrencyPrompt(context, ref);
+      if (!mounted) return;
+    }
     final cost = await _askForUnitCost(context, habit);
     if (cost == null) return;
     final nextHabit = cost <= 0
@@ -397,7 +406,7 @@ Future<double?> _askForUnitCost(BuildContext context, Habit habit) async {
               ),
               decoration: InputDecoration(
                 labelText: 'Cost per ${habit.unit}',
-                prefixText: '\$',
+                prefixText: AppSettings.defaultMoneyCurrencySymbol,
                 hintText: suggestedCost == null
                     ? 'Leave blank to remove'
                     : 'Try ${suggestedCost.toStringAsFixed(2)} if useful',
@@ -412,7 +421,7 @@ Future<double?> _askForUnitCost(BuildContext context, Habit habit) async {
                 },
                 icon: const Icon(Icons.auto_awesome_outlined),
                 label: Text(
-                  'Use local estimate \$${suggestedCost.toStringAsFixed(2)}',
+                  'Use starter estimate ${formatMoney(suggestedCost)}',
                 ),
               ),
             ],
@@ -511,7 +520,7 @@ class _LogCostPreview extends StatelessWidget {
               child: Text(
                 cost == null
                     ? 'Add a unit cost if money is part of the pattern.'
-                    : 'This log adds about ${_formatMoney(cost!)}.',
+                    : 'This log adds about ${formatMoney(cost!)}.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: scheme.onSurfaceVariant,
                   fontWeight: hasCost ? FontWeight.w700 : null,
@@ -607,7 +616,7 @@ class _PostLogSnackContent extends ConsumerWidget {
         Text(
           cost == null
               ? 'Logged ${habit.name}.'
-              : 'Logged ${habit.name} · ${_formatMoney(cost!)}.',
+              : 'Logged ${habit.name} · ${formatMoney(cost!)}.',
         ),
         const SizedBox(height: 8),
         const Text('What triggered this?'),
@@ -637,8 +646,6 @@ class _PostLogSnackContent extends ConsumerWidget {
     );
   }
 }
-
-String _formatMoney(double value) => '\$${value.toStringAsFixed(2)}';
 
 class _HabitPicker extends StatelessWidget {
   const _HabitPicker({
@@ -967,6 +974,7 @@ class _AddHabitSheetState extends ConsumerState<AddHabitSheet> {
   final _unitController = TextEditingController(text: 'units');
   final _costController = TextEditingController();
   HabitCategory _category = HabitCategory.custom;
+  bool _currencyPromptQueued = false;
 
   @override
   void dispose() {
@@ -978,6 +986,10 @@ class _AddHabitSheetState extends ConsumerState<AddHabitSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final state = ref
+        .watch(appControllerProvider)
+        .maybeWhen(data: (state) => state, orElse: () => null);
+    _scheduleCurrencyPrompt(state);
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     final suggestedCost = HabitLibrary.defaultUnitCostFor(_category);
     return Padding(
@@ -1038,7 +1050,7 @@ class _AddHabitSheetState extends ConsumerState<AddHabitSheet> {
               ),
               decoration: const InputDecoration(
                 labelText: 'Cost per unit',
-                prefixText: '\$',
+                prefixText: AppSettings.defaultMoneyCurrencySymbol,
                 hintText: 'Optional',
               ),
             ),
@@ -1052,7 +1064,7 @@ class _AddHabitSheetState extends ConsumerState<AddHabitSheet> {
                   },
                   icon: const Icon(Icons.auto_awesome_outlined),
                   label: Text(
-                    'Use local estimate \$${suggestedCost.toStringAsFixed(2)}',
+                    'Use starter estimate ${formatMoney(suggestedCost)}',
                   ),
                 ),
               ),
@@ -1086,5 +1098,25 @@ class _AddHabitSheetState extends ConsumerState<AddHabitSheet> {
         const SnackBar(content: Text('Tracker added. It is yours to shape.')),
       );
     }
+  }
+
+  void _scheduleCurrencyPrompt(AppState? state) {
+    if (state == null ||
+        state.settings.moneyCurrencySetupCompleted ||
+        _currencyPromptQueued) {
+      return;
+    }
+
+    _currencyPromptQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final latest = ref
+          .read(appControllerProvider)
+          .maybeWhen(data: (state) => state, orElse: () => null);
+      if (latest != null && !latest.settings.moneyCurrencySetupCompleted) {
+        await showMoneyCurrencyPrompt(context, ref);
+      }
+      if (mounted) setState(() => _currencyPromptQueued = false);
+    });
   }
 }
