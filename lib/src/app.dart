@@ -72,6 +72,7 @@ class _StartupGateState extends ConsumerState<StartupGate> {
       data: (state) {
         if (!state.settings.privacyConsentCompleted) {
           return PrivacyConsentScreen(
+            state: state,
             settings: state.settings,
             onComplete: () => setState(() => _startUnlocked = true),
           );

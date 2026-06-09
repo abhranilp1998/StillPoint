@@ -5,6 +5,7 @@ import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../core/models.dart';
+import 'analytics_service.dart';
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
   throw UnimplementedError('NotificationService must be provided at startup.');
@@ -70,6 +71,7 @@ class NotificationService {
 
   Future<ReminderScheduleResult> scheduleOccasionalReminders({
     required AppSettings settings,
+    AppState? state,
   }) async {
     await cancelOccasionalReminders();
 
@@ -77,7 +79,12 @@ class NotificationService {
       fallbackTimezone: settings.reminderTimezone,
     );
     final now = tz.TZDateTime.now(tz.local);
-    var anchor = _firstReminderAnchorAfter(now, settings);
+    final adaptiveSuggestion = state == null
+        ? null
+        : AnalyticsService.buildAdaptiveReminderSuggestion(state);
+    var anchor = adaptiveSuggestion == null
+        ? _firstReminderAnchorAfter(now, settings)
+        : _firstAdaptiveReminderAnchorAfter(now, settings, adaptiveSuggestion);
     tz.TZDateTime? firstDelivery;
 
     for (var index = 0; index < _scheduledReminderCount; index += 1) {
@@ -102,14 +109,16 @@ class NotificationService {
         break;
       }
 
-      anchor = tz.TZDateTime(
-        tz.local,
-        anchor.year,
-        anchor.month,
-        anchor.day + settings.reminderCadenceDays,
-        settings.reminderHour,
-        settings.reminderMinute,
-      );
+      anchor = adaptiveSuggestion == null
+          ? tz.TZDateTime(
+              tz.local,
+              anchor.year,
+              anchor.month,
+              anchor.day + settings.reminderCadenceDays,
+              settings.reminderHour,
+              settings.reminderMinute,
+            )
+          : _nextAdaptiveReminderAnchor(anchor, settings, adaptiveSuggestion);
     }
 
     return ReminderScheduleResult(
@@ -200,6 +209,55 @@ class NotificationService {
       );
     }
     return anchor;
+  }
+
+  static tz.TZDateTime _firstAdaptiveReminderAnchorAfter(
+    tz.TZDateTime now,
+    AppSettings settings,
+    AdaptiveReminderSuggestion suggestion,
+  ) {
+    var riskDay = tz.TZDateTime(tz.local, now.year, now.month, now.day);
+    while (true) {
+      final anchor = _adaptiveReminderAnchorForRiskDay(riskDay, suggestion);
+      if (_moveOutOfQuietHours(anchor, settings).isAfter(now)) {
+        return anchor;
+      }
+      riskDay = tz.TZDateTime(
+        tz.local,
+        riskDay.year,
+        riskDay.month,
+        riskDay.day + settings.reminderCadenceDays,
+      );
+    }
+  }
+
+  static tz.TZDateTime _nextAdaptiveReminderAnchor(
+    tz.TZDateTime currentRiskDayAnchor,
+    AppSettings settings,
+    AdaptiveReminderSuggestion suggestion,
+  ) {
+    final currentRiskMoment = currentRiskDayAnchor.add(suggestion.leadTime);
+    final nextRiskDay = tz.TZDateTime(
+      tz.local,
+      currentRiskMoment.year,
+      currentRiskMoment.month,
+      currentRiskMoment.day + settings.reminderCadenceDays,
+    );
+    return _adaptiveReminderAnchorForRiskDay(nextRiskDay, suggestion);
+  }
+
+  static tz.TZDateTime _adaptiveReminderAnchorForRiskDay(
+    tz.TZDateTime riskDay,
+    AdaptiveReminderSuggestion suggestion,
+  ) {
+    final riskWindowStart = tz.TZDateTime(
+      tz.local,
+      riskDay.year,
+      riskDay.month,
+      riskDay.day,
+      suggestion.windowStartHour,
+    );
+    return riskWindowStart.subtract(suggestion.leadTime);
   }
 
   static tz.TZDateTime _moveOutOfQuietHours(

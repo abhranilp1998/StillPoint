@@ -54,6 +54,22 @@ class HeatmapCell {
   final double quantity;
 }
 
+class AdaptiveReminderSuggestion {
+  const AdaptiveReminderSuggestion({
+    required this.windowStartHour,
+    required this.windowLabel,
+    required this.leadTime,
+    required this.evidenceCount,
+    this.topTrigger,
+  });
+
+  final int windowStartHour;
+  final String windowLabel;
+  final Duration leadTime;
+  final int evidenceCount;
+  final String? topTrigger;
+}
+
 class AnalyticsSnapshot {
   const AnalyticsSnapshot({
     required this.daily,
@@ -254,6 +270,28 @@ class AnalyticsService {
     );
   }
 
+  static AdaptiveReminderSuggestion? buildAdaptiveReminderSuggestion(
+    AppState state,
+  ) {
+    final snapshot = buildSnapshot(state);
+    if (snapshot.totalLogs < 4) return null;
+
+    final window = _dominantReminderWindow(snapshot);
+    if (window == null) return null;
+
+    final topTrigger =
+        snapshot.triggers.isNotEmpty && snapshot.triggers.first.logs >= 2
+        ? snapshot.triggers.first.name
+        : null;
+    return AdaptiveReminderSuggestion(
+      windowStartHour: window.startHour,
+      windowLabel: _windowLabel(window.startHour),
+      leadTime: const Duration(minutes: 45),
+      evidenceCount: window.logs,
+      topTrigger: topTrigger,
+    );
+  }
+
   static DateTime _dayStart(DateTime value) {
     return DateTime(value.year, value.month, value.day);
   }
@@ -352,5 +390,36 @@ class AnalyticsService {
     }
 
     return '${format(hour)}-${format(end)}';
+  }
+
+  static ({int startHour, int logs, double quantity})? _dominantReminderWindow(
+    AnalyticsSnapshot snapshot,
+  ) {
+    if (snapshot.totalLogs < 4) return null;
+
+    ({int startHour, int logs, double quantity})? bestWindow;
+    for (var startHour = 0; startHour < 24; startHour += 1) {
+      var logs = 0;
+      var quantity = 0.0;
+      for (var offset = 0; offset < 3; offset += 1) {
+        final bucket = snapshot.hourly[(startHour + offset) % 24];
+        logs += bucket.logs;
+        quantity += bucket.quantity;
+      }
+      final candidate = (startHour: startHour, logs: logs, quantity: quantity);
+      if (bestWindow == null ||
+          candidate.logs > bestWindow.logs ||
+          (candidate.logs == bestWindow.logs &&
+              candidate.quantity >= bestWindow.quantity)) {
+        bestWindow = candidate;
+      }
+    }
+
+    if (bestWindow == null ||
+        bestWindow.logs < 2 ||
+        bestWindow.logs / snapshot.totalLogs < .3) {
+      return null;
+    }
+    return bestWindow;
   }
 }

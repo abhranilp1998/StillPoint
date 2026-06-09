@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../core/models.dart';
+import '../../services/analytics_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/security_service.dart';
 import '../../state/app_controller.dart';
@@ -167,14 +168,10 @@ class _SecurityCard extends ConsumerWidget {
 
     final pin = await showPinSetupDialog(context);
     if (pin == null) return;
+    final pinHash = await ref.read(securityServiceProvider).hashPin(pin);
     await ref
         .read(appControllerProvider.notifier)
-        .updateSettings(
-          settings.copyWith(
-            pinLock: true,
-            pinHash: SecurityService.hashPin(pin),
-          ),
-        );
+        .updateSettings(settings.copyWith(pinLock: true, pinHash: pinHash));
   }
 }
 
@@ -186,6 +183,12 @@ class _NotificationCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final state = ref
+        .watch(appControllerProvider)
+        .maybeWhen(data: (state) => state, orElse: () => null);
+    final adaptiveSuggestion = state == null
+        ? null
+        : AnalyticsService.buildAdaptiveReminderSuggestion(state);
     return CalmCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,6 +204,21 @@ class _NotificationCard extends ConsumerWidget {
             value: settings.softReminders,
             onChanged: (value) => _toggleReminders(context, ref, value),
           ),
+          if (adaptiveSuggestion != null) ...[
+            const SizedBox(height: 4),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.insights_rounded),
+              title: Text(
+                settings.softReminders
+                    ? 'Adaptive timing is active'
+                    : 'Recent timing suggestion',
+              ),
+              subtitle: Text(
+                _adaptiveReminderSummary(settings, adaptiveSuggestion),
+              ),
+            ),
+          ],
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Hidden content'),
@@ -397,11 +415,17 @@ class _NotificationCard extends ConsumerWidget {
     AppSettings next, {
     bool showNextReminder = false,
   }) async {
+    final currentState = ref
+        .read(appControllerProvider)
+        .maybeWhen(data: (state) => state, orElse: () => null);
     ReminderScheduleResult? scheduleResult;
     if (next.softReminders) {
       scheduleResult = await ref
           .read(notificationServiceProvider)
-          .scheduleOccasionalReminders(settings: next);
+          .scheduleOccasionalReminders(
+            settings: next,
+            state: currentState?.copyWith(settings: next),
+          );
       next = next.copyWith(reminderTimezone: scheduleResult.timezoneName);
     }
 
@@ -420,6 +444,19 @@ class _NotificationCard extends ConsumerWidget {
     if (!settings.quietHours) return 'Reminders can arrive any time.';
     return '${_timeLabel(context, settings.quietStartHour, settings.quietStartMinute)} to '
         '${_timeLabel(context, settings.quietEndHour, settings.quietEndMinute)}';
+  }
+
+  String _adaptiveReminderSummary(
+    AppSettings settings,
+    AdaptiveReminderSuggestion suggestion,
+  ) {
+    final triggerNote = suggestion.topTrigger == null
+        ? ''
+        : ' when ${suggestion.topTrigger} shows up';
+    if (settings.softReminders) {
+      return 'Recent logs cluster around ${suggestion.windowLabel.toLowerCase()}$triggerNote, so check-ins can land a little before that window while content stays hidden.';
+    }
+    return 'Recent logs cluster around ${suggestion.windowLabel.toLowerCase()}$triggerNote. If you opt in, Stillpoint can suggest a quiet check-in before that window while keeping content hidden.';
   }
 }
 

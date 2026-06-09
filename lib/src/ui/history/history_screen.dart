@@ -144,9 +144,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         builder: (_) => HabitDetailScreen(habitId: habit.id),
                       ),
                     ),
-                    onDelete: () => ref
-                        .read(appControllerProvider.notifier)
-                        .deleteEntry(entry.id),
+                    onDelete: () => _deleteEntryWithUndo(entry),
                   ),
                 ),
               );
@@ -226,6 +224,25 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
+  }
+
+  Future<void> _deleteEntryWithUndo(UsageEntry entry) async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    await ref.read(appControllerProvider.notifier).deleteEntry(entry.id);
+    if (!mounted) return;
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: const Text('Log cleared from history.'),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () {
+            ref.read(appControllerProvider.notifier).restoreEntry(entry);
+          },
+        ),
+      ),
+    );
   }
 }
 

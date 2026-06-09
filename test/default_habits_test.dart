@@ -80,6 +80,65 @@ void main() {
     expect(settings.isInQuietHours(12 * 60), isFalse);
   });
 
+  test(
+    'adaptive reminder suggestion leans toward the busiest recent window',
+    () {
+      final now = DateTime.now();
+      final habit = Habit(
+        id: 'alcohol',
+        name: 'Alcohol',
+        category: HabitCategory.alcohol,
+        unit: 'drinks',
+        colorValue: 0xFFC77D57,
+        createdAt: now.subtract(const Duration(days: 40)),
+      );
+      final state = AppState(
+        habits: [habit],
+        entries: [
+          UsageEntry(
+            id: '1',
+            habitId: habit.id,
+            loggedAt: DateTime(now.year, now.month, now.day - 6, 18, 10),
+            quantity: 1,
+            trigger: 'After work',
+          ),
+          UsageEntry(
+            id: '2',
+            habitId: habit.id,
+            loggedAt: DateTime(now.year, now.month, now.day - 4, 19, 0),
+            quantity: 1,
+            trigger: 'After work',
+          ),
+          UsageEntry(
+            id: '3',
+            habitId: habit.id,
+            loggedAt: DateTime(now.year, now.month, now.day - 2, 20, 20),
+            quantity: 1,
+            trigger: 'After work',
+          ),
+          UsageEntry(
+            id: '4',
+            habitId: habit.id,
+            loggedAt: DateTime(now.year, now.month, now.day - 1, 18, 45),
+            quantity: 1,
+            trigger: 'After work',
+          ),
+        ],
+        settings: const AppSettings(),
+      );
+
+      final suggestion = AnalyticsService.buildAdaptiveReminderSuggestion(
+        state,
+      );
+
+      expect(suggestion, isNotNull);
+      expect(suggestion!.windowStartHour, 18);
+      expect(suggestion.windowLabel, '6 PM-9 PM');
+      expect(suggestion.topTrigger, 'After work');
+      expect(suggestion.leadTime, const Duration(minutes: 45));
+    },
+  );
+
   test('habit cost persists and analytics estimates money that could stay', () {
     final habit = Habit(
       id: 'caffeine',

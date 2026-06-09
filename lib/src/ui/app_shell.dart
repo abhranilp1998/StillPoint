@@ -88,6 +88,15 @@ class _AppShellState extends ConsumerState<AppShell>
       return LockScreen(
         settings: settings,
         onUnlocked: () => setState(() => _unlocked = true),
+        onPinHashUpgraded: (upgradedHash) async {
+          final latest = ref
+              .read(appControllerProvider)
+              .maybeWhen(data: (state) => state, orElse: () => null);
+          if (latest == null) return;
+          await ref
+              .read(appControllerProvider.notifier)
+              .updateSettings(latest.settings.copyWith(pinHash: upgradedHash));
+        },
       );
     }
 
@@ -130,7 +139,7 @@ class _AppShellState extends ConsumerState<AppShell>
           },
           child: KeyedSubtree(key: ValueKey(_index), child: _screens[_index]),
         ),
-        floatingActionButton: _index == 4
+        floatingActionButton: _index == 0 || _index == 4
             ? null
             : FloatingActionButton(
                 tooltip: 'Quick log',

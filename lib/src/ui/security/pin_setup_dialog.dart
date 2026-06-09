@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../services/security_service.dart';
-
 Future<String?> showPinSetupDialog(BuildContext context) async {
   return showDialog<String>(
     context: context,
@@ -50,7 +48,7 @@ class _PinSetupDialogState extends State<_PinSetupDialog> {
         FilledButton(
           onPressed: () {
             final pin = _controller.text.trim();
-            if (!SecurityService.isPinFormat(pin)) {
+            if (!RegExp(r'^\d{4,8}$').hasMatch(pin)) {
               setState(() => error = 'Use 4-8 digits.');
               return;
             }

@@ -98,6 +98,17 @@ class AppController extends AsyncNotifier<AppState> {
     await _repository.save(next);
   }
 
+  Future<void> restoreEntry(UsageEntry entry) async {
+    final current = await _current();
+    if (current.entries.any((existing) => existing.id == entry.id)) return;
+
+    final nextEntries = [...current.entries, entry]
+      ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
+    final next = current.copyWith(entries: nextEntries);
+    state = AsyncData(next);
+    await _repository.save(next);
+  }
+
   Future<void> updateEntry(UsageEntry updatedEntry) async {
     final current = await _current();
     final next = current.copyWith(

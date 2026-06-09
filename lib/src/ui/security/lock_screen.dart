@@ -1,31 +1,41 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 
 import '../../core/models.dart';
 import '../../services/security_service.dart';
 
-class LockScreen extends StatefulWidget {
+class LockScreen extends ConsumerStatefulWidget {
   const LockScreen({
     super.key,
     required this.settings,
     required this.onUnlocked,
+    this.onPinHashUpgraded,
   });
 
   final AppSettings settings;
   final VoidCallback onUnlocked;
+  final Future<void> Function(String upgradedHash)? onPinHashUpgraded;
 
   @override
-  State<LockScreen> createState() => _LockScreenState();
+  ConsumerState<LockScreen> createState() => _LockScreenState();
 }
 
-class _LockScreenState extends State<LockScreen> {
+class _LockScreenState extends ConsumerState<LockScreen> {
   final _pinController = TextEditingController();
   final _localAuth = LocalAuthentication();
+
   String? _message;
+  DateTime? _retryAvailableAt;
+  Timer? _retryTimer;
+  bool _verifyingPin = false;
 
   @override
   void initState() {
     super.initState();
+    _loadRetryState();
     if (widget.settings.biometricLock) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _tryBiometric());
     }
@@ -33,6 +43,7 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   void dispose() {
+    _retryTimer?.cancel();
     _pinController.dispose();
     super.dispose();
   }
@@ -40,6 +51,7 @@ class _LockScreenState extends State<LockScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final pinLocked = _isPinLocked;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -70,6 +82,7 @@ class _LockScreenState extends State<LockScreen> {
                     const SizedBox(height: 22),
                     TextField(
                       controller: _pinController,
+                      enabled: !pinLocked && !_verifyingPin,
                       keyboardType: TextInputType.number,
                       obscureText: true,
                       textAlign: TextAlign.center,
@@ -107,7 +120,9 @@ class _LockScreenState extends State<LockScreen> {
                       if (widget.settings.pinLock)
                         Expanded(
                           child: FilledButton.icon(
-                            onPressed: _tryPin,
+                            onPressed: pinLocked || _verifyingPin
+                                ? null
+                                : _tryPin,
                             icon: const Icon(Icons.check_rounded),
                             label: const Text('Unlock'),
                           ),
@@ -129,7 +144,10 @@ class _LockScreenState extends State<LockScreen> {
         localizedReason: 'Unlock your private tracker',
         biometricOnly: false,
       );
-      if (didAuthenticate) widget.onUnlocked();
+      if (didAuthenticate) {
+        await ref.read(securityServiceProvider).clearFailedPinAttempts();
+        widget.onUnlocked();
+      }
     } catch (_) {
       if (mounted) {
         setState(() => _message = 'Biometric unlock is unavailable.');
@@ -137,13 +155,82 @@ class _LockScreenState extends State<LockScreen> {
     }
   }
 
-  void _tryPin() {
+  Future<void> _tryPin() async {
     final expected = widget.settings.pinHash;
     if (expected == null) return;
-    if (SecurityService.hashPin(_pinController.text) == expected) {
-      widget.onUnlocked();
-    } else {
-      setState(() => _message = 'That PIN did not match.');
+    final pin = _pinController.text.trim();
+    final security = ref.read(securityServiceProvider);
+    if (!security.isPinFormat(pin)) {
+      setState(() => _message = 'Use 4-8 digits.');
+      return;
     }
+
+    setState(() => _verifyingPin = true);
+    final result = await security.verifyPin(pin: pin, expectedHash: expected);
+    if (!mounted) return;
+
+    if (result.matches) {
+      if (result.upgradedHash != null && widget.onPinHashUpgraded != null) {
+        await widget.onPinHashUpgraded!(result.upgradedHash!);
+        if (!mounted) return;
+      }
+      widget.onUnlocked();
+      return;
+    }
+
+    _pinController.clear();
+    final retryAvailableAt = result.retryAvailableAt;
+    setState(() {
+      _verifyingPin = false;
+      _applyRetryState(retryAvailableAt);
+      _message = retryAvailableAt == null
+          ? 'That PIN did not match.'
+          : _lockoutMessage(retryAvailableAt);
+    });
+  }
+
+  bool get _isPinLocked =>
+      _retryAvailableAt != null && _retryAvailableAt!.isAfter(DateTime.now());
+
+  Future<void> _loadRetryState() async {
+    final retryAvailableAt = await ref
+        .read(securityServiceProvider)
+        .currentRetryAvailableAt();
+    if (!mounted) return;
+    setState(() {
+      _applyRetryState(retryAvailableAt);
+      if (_isPinLocked) {
+        _message = _lockoutMessage(_retryAvailableAt!);
+      }
+    });
+  }
+
+  void _applyRetryState(DateTime? retryAvailableAt) {
+    _retryAvailableAt = retryAvailableAt;
+    _retryTimer?.cancel();
+    if (!_isPinLocked) return;
+
+    _retryTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final activeUntil = _retryAvailableAt;
+      if (activeUntil == null || !activeUntil.isAfter(DateTime.now())) {
+        timer.cancel();
+        setState(() {
+          _retryAvailableAt = null;
+          _message = null;
+        });
+        return;
+      }
+      setState(() => _message = _lockoutMessage(activeUntil));
+    });
+  }
+
+  String _lockoutMessage(DateTime retryAvailableAt) {
+    final remaining = retryAvailableAt.difference(DateTime.now()).inSeconds;
+    final seconds = remaining <= 0 ? 1 : remaining + 1;
+    return 'Wait $seconds second${seconds == 1 ? '' : 's'} before trying again.';
   }
 }

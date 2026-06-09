@@ -20,6 +20,7 @@ Future<void> main() async {
       initialState.settings.softReminders) {
     final result = await notifications.scheduleOccasionalReminders(
       settings: initialState.settings,
+      state: initialState,
     );
     if (result.timezoneName != initialState.settings.reminderTimezone) {
       await repository.save(

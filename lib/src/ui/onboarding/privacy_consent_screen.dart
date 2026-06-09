@@ -12,10 +12,12 @@ import '../widgets/adaptive_scaffold.dart';
 class PrivacyConsentScreen extends ConsumerStatefulWidget {
   const PrivacyConsentScreen({
     super.key,
+    required this.state,
     required this.settings,
     required this.onComplete,
   });
 
+  final AppState state;
   final AppSettings settings;
   final VoidCallback onComplete;
 
@@ -126,7 +128,9 @@ class _PrivacyConsentScreenState extends ConsumerState<PrivacyConsentScreen> {
 
     final pin = await showPinSetupDialog(context);
     if (!mounted || pin == null) return;
-    setState(() => _pinHash = SecurityService.hashPin(pin));
+    final pinHash = await ref.read(securityServiceProvider).hashPin(pin);
+    if (!mounted) return;
+    setState(() => _pinHash = pinHash);
   }
 
   Future<void> _setDeviceLockEnabled(bool value) async {
@@ -177,7 +181,10 @@ class _PrivacyConsentScreenState extends ConsumerState<PrivacyConsentScreen> {
         if (granted) {
           nextSettings = nextSettings.copyWith(softReminders: true);
           final scheduleResult = await notifications
-              .scheduleOccasionalReminders(settings: nextSettings);
+              .scheduleOccasionalReminders(
+                settings: nextSettings,
+                state: widget.state.copyWith(settings: nextSettings),
+              );
           nextSettings = nextSettings.copyWith(
             reminderTimezone: scheduleResult.timezoneName,
           );
