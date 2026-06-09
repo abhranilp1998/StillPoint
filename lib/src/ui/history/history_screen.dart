@@ -11,6 +11,7 @@ import '../habit/habit_detail_screen.dart';
 import '../logging/quick_log_sheet.dart';
 import '../widgets/adaptive_scaffold.dart';
 import '../widgets/habit_visuals.dart';
+import '../widgets/tracker_focus_bar.dart';
 
 enum HistorySort { newest, oldest, quantityHigh, quantityLow }
 
@@ -26,6 +27,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   HistorySort _sort = HistorySort.newest;
   DateTimeRange? _range;
   String _query = '';
+  String? _focusedHabitId;
   bool _exporting = false;
 
   @override
@@ -47,10 +49,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final state = ref
         .watch(appControllerProvider)
         .maybeWhen(data: (state) => state, orElse: () => null);
+    final filterHabits = _historyFilterHabits(state);
+    final validFocusId =
+        filterHabits.any((habit) => habit.id == _focusedHabitId)
+        ? _focusedHabitId
+        : null;
     final entries = state == null
         ? const <UsageEntry>[]
         : _filteredEntries(state);
-    final hasFilters = _query.isNotEmpty || _range != null;
+    final hasFilters =
+        _query.isNotEmpty || _range != null || validFocusId != null;
 
     return CustomScrollView(
       slivers: [
@@ -59,24 +67,41 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
             child: MotionReveal(
-              child: _HistoryControls(
-                controller: _searchController,
-                sort: _sort,
-                range: _range,
-                exporting: _exporting,
-                onSortChanged: (value) => setState(() => _sort = value),
-                onPickRange: _pickRange,
-                onClearRange: () => setState(() => _range = null),
-                onExportCsv: state == null
-                    ? null
-                    : () => _export(
-                        state.copyWith(entries: entries),
-                        xlsx: false,
-                      ),
-                onExportXlsx: state == null
-                    ? null
-                    : () =>
-                          _export(state.copyWith(entries: entries), xlsx: true),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _HistoryControls(
+                    controller: _searchController,
+                    sort: _sort,
+                    range: _range,
+                    exporting: _exporting,
+                    onSortChanged: (value) => setState(() => _sort = value),
+                    onPickRange: _pickRange,
+                    onClearRange: () => setState(() => _range = null),
+                    onExportCsv: state == null
+                        ? null
+                        : () => _export(
+                            state.copyWith(entries: entries),
+                            xlsx: false,
+                          ),
+                    onExportXlsx: state == null
+                        ? null
+                        : () => _export(
+                            state.copyWith(entries: entries),
+                            xlsx: true,
+                          ),
+                  ),
+                  if (filterHabits.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    TrackerFocusBar(
+                      habits: filterHabits,
+                      selectedHabitId: validFocusId,
+                      allLabel: 'All logs',
+                      onSelected: (value) =>
+                          setState(() => _focusedHabitId = value),
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
@@ -161,11 +186,15 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       _query = '';
       _range = null;
       _sort = HistorySort.newest;
+      _focusedHabitId = null;
     });
   }
 
   List<UsageEntry> _filteredEntries(AppState state) {
     final habitsById = {for (final habit in state.habits) habit.id: habit};
+    final focusedHabitId = habitsById.containsKey(_focusedHabitId)
+        ? _focusedHabitId
+        : null;
     final entries = state.entries.where((entry) {
       final habit = habitsById[entry.habitId];
       final inSearch =
@@ -179,7 +208,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               !entry.loggedAt.isAfter(
                 _range!.end.add(const Duration(days: 1)),
               ));
-      return inSearch && inRange;
+      final inFocus = focusedHabitId == null || entry.habitId == focusedHabitId;
+      return inSearch && inRange && inFocus;
     }).toList();
 
     entries.sort((a, b) {
@@ -191,6 +221,19 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       };
     });
     return entries;
+  }
+
+  List<Habit> _historyFilterHabits(AppState? state) {
+    if (state == null) return const <Habit>[];
+    final usedHabitIds = state.entries.map((entry) => entry.habitId).toSet();
+    final habits = state.habits
+        .where((habit) => usedHabitIds.contains(habit.id))
+        .toList(growable: false);
+    habits.sort((a, b) {
+      if (a.archived != b.archived) return a.archived ? 1 : -1;
+      return a.name.compareTo(b.name);
+    });
+    return habits;
   }
 
   Future<void> _pickRange() async {

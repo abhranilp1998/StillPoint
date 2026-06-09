@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import '../widgets/adaptive_scaffold.dart';
 
 class SanctuaryScreen extends StatelessWidget {
-  const SanctuaryScreen({super.key});
+  const SanctuaryScreen({super.key, this.initialPauseSeconds = 0});
+
+  final int initialPauseSeconds;
 
   @override
   Widget build(BuildContext context) {
@@ -20,24 +22,24 @@ class SanctuaryScreen extends StatelessWidget {
             child: ScreenPadding(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  MotionReveal(child: _SlowModeHeader()),
-                  SizedBox(height: 14),
-                  MotionReveal(
+                children: [
+                  const MotionReveal(child: _SlowModeHeader()),
+                  const SizedBox(height: 14),
+                  const MotionReveal(
                     delay: Duration(milliseconds: 60),
                     child: BreathingTimer(),
                   ),
-                  SizedBox(height: 14),
+                  const SizedBox(height: 14),
                   MotionReveal(
-                    delay: Duration(milliseconds: 120),
-                    child: UrgeDelayCard(),
+                    delay: const Duration(milliseconds: 120),
+                    child: UrgeDelayCard(initialSeconds: initialPauseSeconds),
                   ),
-                  SizedBox(height: 14),
-                  MotionReveal(
+                  const SizedBox(height: 14),
+                  const MotionReveal(
                     delay: Duration(milliseconds: 180),
                     child: GroundingPrompts(),
                   ),
-                  SizedBox(height: 120),
+                  const SizedBox(height: 120),
                 ],
               ),
             ),
@@ -265,7 +267,9 @@ class _BreathingTimerState extends State<BreathingTimer> {
 }
 
 class UrgeDelayCard extends StatefulWidget {
-  const UrgeDelayCard({super.key});
+  const UrgeDelayCard({super.key, this.initialSeconds = 0});
+
+  final int initialSeconds;
 
   @override
   State<UrgeDelayCard> createState() => _UrgeDelayCardState();
@@ -274,6 +278,17 @@ class UrgeDelayCard extends StatefulWidget {
 class _UrgeDelayCardState extends State<UrgeDelayCard> {
   Timer? _timer;
   int _remaining = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialSeconds > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _start(widget.initialSeconds);
+      });
+    }
+  }
 
   @override
   void dispose() {

@@ -35,6 +35,8 @@ class SanctuaryAttentionService {
     return false;
   }
 
+  static bool isHighNeedEntry(UsageEntry entry) => _isHighNeed(entry);
+
   static bool _isHighNeed(UsageEntry entry) {
     return (entry.craving ?? 0) >= 4 ||
         (entry.stress ?? 0) >= 4 ||

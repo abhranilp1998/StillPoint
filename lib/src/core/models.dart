@@ -594,6 +594,21 @@ class AppState {
   List<Habit> get activeHabits =>
       habits.where((habit) => !habit.archived).toList(growable: false);
 
+  List<Habit> get archivedHabits =>
+      habits.where((habit) => habit.archived).toList(growable: false);
+
+  UsageEntry? get lastActiveEntry {
+    final activeIds = activeHabits.map((habit) => habit.id).toSet();
+    if (activeIds.isEmpty) return null;
+    final activeEntries = entries
+        .where((entry) => activeIds.contains(entry.habitId))
+        .toList(growable: false);
+    if (activeEntries.isEmpty) return null;
+    final sorted = [...activeEntries]
+      ..sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
+    return sorted.first;
+  }
+
   UsageEntry? get lastEntry {
     if (entries.isEmpty) return null;
     final sorted = [...entries]
@@ -715,6 +730,7 @@ class AppState {
           unit: preset.$1.defaultUnit,
           colorValue: preset.$3,
           createdAt: createdAt,
+          archived: true,
         ),
     ];
   }

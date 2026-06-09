@@ -93,12 +93,14 @@ class TrackerTile extends StatelessWidget {
     required this.onTap,
     this.subtitle,
     this.lastEntry,
+    this.trailing,
   });
 
   final Habit habit;
   final VoidCallback onTap;
   final String? subtitle;
   final UsageEntry? lastEntry;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -142,6 +144,7 @@ class TrackerTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (trailing != null) ...[const SizedBox(width: 6), trailing!],
             ],
           ),
           const Spacer(),

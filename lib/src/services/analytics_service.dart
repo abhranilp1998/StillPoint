@@ -121,17 +121,24 @@ class AnalyticsSnapshot {
 }
 
 class AnalyticsService {
-  static AnalyticsSnapshot buildSnapshot(AppState state) {
+  static AnalyticsSnapshot buildSnapshot(
+    AppState state, {
+    Set<String>? focusHabitIds,
+  }) {
     final now = DateTime.now();
     final today = _dayStart(now);
     final entries = [...state.entries]
       ..sort((a, b) => a.loggedAt.compareTo(b.loggedAt));
     final activeHabitIds = state.activeHabits.map((habit) => habit.id).toSet();
-    final habitsById = {
-      for (final habit in state.activeHabits) habit.id: habit,
-    };
+    final scopedHabitIds = focusHabitIds == null || focusHabitIds.isEmpty
+        ? activeHabitIds
+        : activeHabitIds.intersection(focusHabitIds);
+    final scopedHabits = state.activeHabits
+        .where((habit) => scopedHabitIds.contains(habit.id))
+        .toList(growable: false);
+    final habitsById = {for (final habit in scopedHabits) habit.id: habit};
     final scoped = entries
-        .where((entry) => activeHabitIds.contains(entry.habitId))
+        .where((entry) => scopedHabitIds.contains(entry.habitId))
         .toList(growable: false);
 
     final daily = <DailyUsage>[];
@@ -233,7 +240,7 @@ class AnalyticsService {
         ? 0
         : ((previousWeekTotal - weekTotal) / previousWeekTotal) * 100;
 
-    final currentTargetDays = _countRecentTargetDays(state, daily);
+    final currentTargetDays = _countRecentTargetDays(scopedHabits, daily);
     final strongestHour = hourly.reduce(
       (a, b) => a.quantity >= b.quantity ? a : b,
     );
@@ -264,7 +271,7 @@ class AnalyticsService {
       monthEstimatedCost: monthEstimatedCost,
       topCostHabitName: topCost?.name,
       topCostHabitAmount: topCost?.amount ?? 0,
-      habitsWithCost: state.activeHabits
+      habitsWithCost: scopedHabits
           .where((habit) => (habit.costPerUnit ?? 0) > 0)
           .length,
     );
@@ -361,8 +368,11 @@ class AnalyticsService {
     return (name: habit.name, amount: top.value);
   }
 
-  static int _countRecentTargetDays(AppState state, List<DailyUsage> daily) {
-    final targets = state.activeHabits
+  static int _countRecentTargetDays(
+    List<Habit> habits,
+    List<DailyUsage> daily,
+  ) {
+    final targets = habits
         .where((habit) => habit.dailyTarget != null)
         .map((habit) => habit.dailyTarget!)
         .toList();

@@ -14,6 +14,7 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 class NotificationService {
   static const _previewReminderId = 1001;
   static const _occasionalReminderId = 1002;
+  static const _followUpReminderId = 1003;
   static const _scheduledReminderCount = 12;
 
   final FlutterLocalNotificationsPlugin _plugin =
@@ -142,6 +143,37 @@ class NotificationService {
           : 'A tiny log is enough. All local, no judgment.',
       notificationDetails: _reminderDetails(),
     );
+  }
+
+  Future<DateTime?> scheduleFollowUpReminder({
+    required AppSettings settings,
+    required Duration delay,
+    String? trackerName,
+  }) async {
+    await configureLocalTimezone(fallbackTimezone: settings.reminderTimezone);
+    final now = tz.TZDateTime.now(tz.local);
+    final delivery = _moveOutOfQuietHours(now.add(delay), settings);
+
+    try {
+      await _plugin.zonedSchedule(
+        id: _followUpReminderId,
+        scheduledDate: delivery,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        title: settings.hiddenNotifications
+            ? 'Quiet check-in'
+            : 'A gentle Stillpoint check-in',
+        body: settings.hiddenNotifications
+            ? 'Open the app when you have a quiet moment.'
+            : trackerName == null
+            ? 'You asked for a soft follow-up. Check in when it feels okay.'
+            : 'Take a slow breath and check back in with $trackerName when you are ready.',
+        notificationDetails: _reminderDetails(),
+        payload: 'follow_up_check_in',
+      );
+      return delivery;
+    } on UnimplementedError {
+      return null;
+    }
   }
 
   static DateTime nextAllowedReminderAfter({

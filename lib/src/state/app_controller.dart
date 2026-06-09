@@ -78,15 +78,16 @@ class AppController extends AsyncNotifier<AppState> {
     return entry;
   }
 
-  Future<void> repeatLastEntry() async {
+  Future<UsageEntry?> repeatLastEntry() async {
     final current = await _current();
-    final last = current.lastEntry;
-    if (last == null) return;
+    final last = current.lastActiveEntry;
+    if (last == null) return null;
 
     final nextEntry = last.copyWith(id: _uuid.v4(), loggedAt: DateTime.now());
     final next = current.copyWith(entries: [...current.entries, nextEntry]);
     state = AsyncData(next);
     await _repository.save(next);
+    return nextEntry;
   }
 
   Future<void> deleteEntry(String entryId) async {
@@ -159,6 +160,25 @@ class AppController extends AsyncNotifier<AppState> {
       habits: [
         for (final existing in current.habits)
           if (existing.id == habit.id) habit else existing,
+      ],
+    );
+    state = AsyncData(next);
+    await _repository.save(next);
+  }
+
+  Future<void> setHabitArchived(Habit habit, {required bool archived}) async {
+    await updateHabit(habit.copyWith(archived: archived));
+  }
+
+  Future<void> activateHabits(Iterable<String> habitIds) async {
+    final ids = habitIds.toSet();
+    if (ids.isEmpty) return;
+
+    final current = await _current();
+    final next = current.copyWith(
+      habits: [
+        for (final habit in current.habits)
+          ids.contains(habit.id) ? habit.copyWith(archived: false) : habit,
       ],
     );
     state = AsyncData(next);

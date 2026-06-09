@@ -12,6 +12,7 @@ import '../logging/quick_log_sheet.dart';
 import '../widgets/adaptive_scaffold.dart';
 import '../widgets/habit_visuals.dart';
 import '../widgets/money_currency_prompt.dart';
+import '../widgets/web_search_preview_sheet.dart';
 import 'entry_editor_sheet.dart';
 
 class HabitDetailScreen extends ConsumerWidget {
@@ -563,22 +564,18 @@ class _ResourcesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final query = GuidanceService.searchUriFor(
+      habit: habit,
+      entries: entries,
+    ).queryParameters['q']!;
     return CalmCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(
-            title: 'Help and search',
-            trailing: IconButton(
-              tooltip: 'Search web',
-              onPressed: () =>
-                  GuidanceService.openSearch(habit: habit, entries: entries),
-              icon: const Icon(Icons.travel_explore_rounded),
-            ),
-          ),
+          const SectionHeader(title: 'Trusted resources'),
           const SizedBox(height: 8),
           Text(
-            'Search uses your visible pattern context, such as habit, timing, and triggers. It opens outside the app.',
+            'These open curated sources first. Broader web search stays optional and behind a preview.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -592,6 +589,20 @@ class _ResourcesCard extends StatelessWidget {
               subtitle: Text(resource.source),
               onTap: () => GuidanceService.openUri(resource.url),
             ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => showWebSearchPreviewSheet(
+              context,
+              title: 'Preview web search',
+              query: query,
+              body:
+                  'This search uses the visible tracker pattern, including habit, timing, and triggers. It opens outside Stillpoint.',
+              onOpen: () =>
+                  GuidanceService.openSearch(habit: habit, entries: entries),
+            ),
+            icon: const Icon(Icons.travel_explore_rounded),
+            label: const Text('Preview web search'),
+          ),
         ],
       ),
     );

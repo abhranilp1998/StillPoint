@@ -13,9 +13,11 @@ import '../../state/app_controller.dart';
 import '../habit/habit_detail_screen.dart';
 import '../logging/quick_log_sheet.dart';
 import '../support/support_screen.dart';
+import '../trackers/starter_tracker_sheet.dart';
 import '../trackers/tracker_catalog_screen.dart';
 import '../widgets/adaptive_scaffold.dart';
 import '../widgets/habit_visuals.dart';
+import '../widgets/web_search_preview_sheet.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -35,17 +37,27 @@ class HomeScreen extends ConsumerWidget {
               actions: [
                 IconButton(
                   tooltip: 'Repeat last',
-                  onPressed: state.lastEntry == null
+                  onPressed: state.lastActiveEntry == null
                       ? null
                       : () async {
                           HapticFeedback.selectionClick();
-                          await ref
+                          final repeated = await ref
                               .read(appControllerProvider.notifier)
                               .repeatLastEntry();
-                          if (context.mounted) {
+                          if (repeated != null && context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Last log repeated.'),
+                              SnackBar(
+                                content: const Text(
+                                  'Last active log repeated.',
+                                ),
+                                action: SnackBarAction(
+                                  label: 'Undo',
+                                  onPressed: () {
+                                    ref
+                                        .read(appControllerProvider.notifier)
+                                        .deleteEntry(repeated.id);
+                                  },
+                                ),
                               ),
                             );
                           }
@@ -70,7 +82,7 @@ class HomeScreen extends ConsumerWidget {
                     const SizedBox(height: 14),
                     MotionReveal(
                       delay: const Duration(milliseconds: 110),
-                      child: _InsightStrip(insights: insights),
+                      child: _InsightStrip(insights: insights, state: state),
                     ),
                     const SizedBox(height: 14),
                     MotionReveal(
@@ -118,7 +130,7 @@ class _TodaySection extends StatelessWidget {
         _HeroSummary(state: state, analytics: analytics),
         if (analytics.habitsWithCost > 0) ...[
           const SizedBox(height: 12),
-          _MoneyReflectionCards(analytics: analytics),
+          _MoneyReflectionCard(analytics: analytics),
         ],
       ],
     );
@@ -169,56 +181,128 @@ class _SanctuaryPromptButton extends StatelessWidget {
   }
 }
 
-class _MoneyReflectionCards extends StatelessWidget {
-  const _MoneyReflectionCards({required this.analytics});
+class _MoneyReflectionCard extends StatefulWidget {
+  const _MoneyReflectionCard({required this.analytics});
 
   final AnalyticsSnapshot analytics;
 
   @override
+  State<_MoneyReflectionCard> createState() => _MoneyReflectionCardState();
+}
+
+class _MoneyReflectionCardState extends State<_MoneyReflectionCard> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 560;
-        return GridView(
-          padding: EdgeInsets.zero,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: isWide ? 4 : 2,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            mainAxisExtent: 132,
+    final analytics = widget.analytics;
+    return CalmCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            title: 'Money reflection',
+            trailing: TextButton.icon(
+              onPressed: () => setState(() => _expanded = !_expanded),
+              icon: Icon(
+                _expanded
+                    ? Icons.expand_less_rounded
+                    : Icons.expand_more_rounded,
+              ),
+              label: Text(_expanded ? 'Collapse' : 'Expand'),
+            ),
           ),
-          children: [
-            _MoneyMetricTile(
-              label: 'Today cost',
-              value: formatMoney(analytics.todayEstimatedCost),
-              icon: Icons.today_outlined,
-              emphasis: analytics.todayEstimatedCost > 0,
+          const SizedBox(height: 8),
+          Text(
+            analytics.sevenDayEstimatedCost <= 0
+                ? 'Money tracking is on, but nothing costed has shown up in the last 7 days yet.'
+                : '${formatMoney(analytics.sevenDayEstimatedCost)} over the last 7 days. Keep it as reflection, not a scoreboard.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-            _MoneyMetricTile(
-              label: '7-day total',
-              value: formatMoney(analytics.sevenDayEstimatedCost),
-              icon: Icons.date_range_outlined,
-              emphasis: analytics.sevenDayEstimatedCost > 0,
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              Chip(
+                avatar: const Icon(Icons.today_outlined, size: 16),
+                label: Text(
+                  'Today ${formatMoney(analytics.todayEstimatedCost)}',
+                ),
+              ),
+              Chip(
+                avatar: const Icon(Icons.date_range_outlined, size: 16),
+                label: Text(
+                  '7-day ${formatMoney(analytics.sevenDayEstimatedCost)}',
+                ),
+              ),
+              if (analytics.topCostHabitName != null)
+                Chip(
+                  avatar: const Icon(Icons.savings_outlined, size: 16),
+                  label: Text(
+                    '${analytics.topCostHabitName} ${formatMoney(analytics.topCostHabitAmount)}',
+                  ),
+                ),
+            ],
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 560;
+                  return GridView(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: isWide ? 4 : 2,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      mainAxisExtent: 132,
+                    ),
+                    children: [
+                      _MoneyMetricTile(
+                        label: 'Today cost',
+                        value: formatMoney(analytics.todayEstimatedCost),
+                        icon: Icons.today_outlined,
+                        emphasis: analytics.todayEstimatedCost > 0,
+                      ),
+                      _MoneyMetricTile(
+                        label: '7-day total',
+                        value: formatMoney(analytics.sevenDayEstimatedCost),
+                        icon: Icons.date_range_outlined,
+                        emphasis: analytics.sevenDayEstimatedCost > 0,
+                      ),
+                      _MoneyMetricTile(
+                        label: 'Month-to-date',
+                        value: formatMoney(analytics.monthEstimatedCost),
+                        icon: Icons.calendar_month_outlined,
+                        emphasis: analytics.monthEstimatedCost > 0,
+                      ),
+                      _MoneyMetricTile(
+                        label: analytics.topCostHabitName ?? 'Top cost tracker',
+                        value: analytics.topCostHabitName == null
+                            ? 'None yet'
+                            : formatMoney(analytics.topCostHabitAmount),
+                        icon: Icons.savings_outlined,
+                        emphasis: analytics.topCostHabitAmount > 0,
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
-            _MoneyMetricTile(
-              label: 'Month-to-date',
-              value: formatMoney(analytics.monthEstimatedCost),
-              icon: Icons.calendar_month_outlined,
-              emphasis: analytics.monthEstimatedCost > 0,
-            ),
-            _MoneyMetricTile(
-              label: analytics.topCostHabitName ?? 'Top cost tracker',
-              value: analytics.topCostHabitName == null
-                  ? 'None yet'
-                  : formatMoney(analytics.topCostHabitAmount),
-              icon: Icons.savings_outlined,
-              emphasis: analytics.topCostHabitAmount > 0,
-            ),
-          ],
-        );
-      },
+            crossFadeState: _expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 180),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -306,9 +390,9 @@ class _HeroSummary extends StatelessWidget {
       < 21 => 'Good evening. No judgment here.',
       _ => 'Quiet night. Keep it soft.',
     };
-    final lastLog = state.lastEntry == null
+    final lastLog = state.lastActiveEntry == null
         ? 'No logs yet today'
-        : 'Last logged ${DateFormat('h:mm a').format(state.lastEntry!.loggedAt)}';
+        : 'Last logged ${DateFormat('h:mm a').format(state.lastActiveEntry!.loggedAt)}';
     final todayLabel = analytics.todayTotal == 0
         ? 'No logs yet'
         : analytics.todayTotal.toStringAsFixed(
@@ -380,33 +464,6 @@ class _HeroSummary extends StatelessWidget {
               ),
             ),
           ),
-          if (analytics.weekEstimatedCost > 0) ...[
-            const SizedBox(height: 12),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface.withValues(alpha: .28),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    const Icon(Icons.savings_outlined),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        '${formatMoney(analytics.weekEstimatedCost)} could have stayed with you this week.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -422,13 +479,14 @@ class _QuickLogSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (habits.isEmpty) {
       return EmptyStateCard(
-        icon: Icons.add_circle_outline_rounded,
-        title: 'No trackers yet',
-        body: 'Add one small thing to track, then quick logs will appear here.',
+        icon: Icons.checklist_rtl_rounded,
+        title: 'Pick a smaller starting set',
+        body:
+            'Choose 3 trackers to begin so quick log stays calm instead of crowded.',
         action: FilledButton.icon(
-          onPressed: () => showAddHabitSheet(context),
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Add tracker'),
+          onPressed: () => showStarterTrackerSheet(context),
+          icon: const Icon(Icons.checklist_rounded),
+          label: const Text('Pick 3 to start'),
         ),
       );
     }
@@ -481,11 +539,12 @@ class _TrackersSection extends StatelessWidget {
       return EmptyStateCard(
         icon: Icons.grid_view_rounded,
         title: 'Trackers will live here',
-        body: 'Create a tracker when you know what would be useful to notice.',
-        action: OutlinedButton.icon(
-          onPressed: () => showAddHabitSheet(context),
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Add tracker'),
+        body:
+            'Start with a few visible trackers, then bring back more only when they would help.',
+        action: FilledButton.icon(
+          onPressed: () => showStarterTrackerSheet(context),
+          icon: const Icon(Icons.checklist_rounded),
+          label: const Text('Pick 3 to start'),
         ),
       );
     }
@@ -546,9 +605,10 @@ class _TrackersSection extends StatelessWidget {
 }
 
 class _InsightStrip extends ConsumerWidget {
-  const _InsightStrip({required this.insights});
+  const _InsightStrip({required this.insights, required this.state});
 
   final List<BehaviorInsight> insights;
+  final AppState state;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -592,7 +652,8 @@ class _InsightStrip extends ConsumerWidget {
               return SizedBox(
                 width: minOf(312, MediaQuery.sizeOf(context).width * .78),
                 child: CalmCard(
-                  onTap: () => _showInsightDetails(context, ref, insight),
+                  onTap: () =>
+                      _showInsightDetails(context, ref, insight, state),
                   semanticLabel: 'Open observation ${insight.title}',
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
@@ -677,10 +738,15 @@ class _InsightStrip extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     BehaviorInsight insight,
+    AppState state,
   ) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final icon = _iconForInsight(insight);
+    final trustedResources = GuidanceService.resourcesForInsight(
+      insight: insight,
+      state: state,
+    );
 
     showModalBottomSheet<void>(
       context: context,
@@ -835,22 +901,45 @@ class _InsightStrip extends ConsumerWidget {
                   ),
                 ),
             ],
+            if (trustedResources.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              Text('Trusted resources', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Text(
+                'These open curated sources first. Broader web search stays optional.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              for (final resource in trustedResources)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.open_in_new_rounded),
+                  title: Text(resource.title),
+                  subtitle: Text(resource.source),
+                  onTap: () => GuidanceService.openUri(resource.url),
+                ),
+            ],
             if (insight.searchQuery != null) ...[
               const SizedBox(height: 18),
               FilledButton.icon(
                 onPressed: () async {
-                  final opened = await GuidanceService.openHarmReductionSearch(
-                    insight.searchQuery!,
-                  );
-                  if (!context.mounted || opened) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Could not open the browser right now.'),
+                  await showWebSearchPreviewSheet(
+                    context,
+                    title: 'Preview web search',
+                    query: GuidanceService.harmReductionSearchUri(
+                      insight.searchQuery!,
+                    ).queryParameters['q']!,
+                    body:
+                        'This opens outside Stillpoint. Search is optional and uses the query below.',
+                    onOpen: () => GuidanceService.openHarmReductionSearch(
+                      insight.searchQuery!,
                     ),
                   );
                 },
                 icon: const Icon(Icons.travel_explore_rounded),
-                label: const Text('Search harm-reduction info'),
+                label: const Text('Preview web search'),
               ),
             ],
           ],

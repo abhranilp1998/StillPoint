@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/currency.dart';
 import '../../core/habit_library.dart';
 import '../../core/models.dart';
 import '../../core/quantity_math.dart';
+import '../../services/notification_service.dart';
+import '../../services/sanctuary_attention_service.dart';
 import '../../state/app_controller.dart';
 import '../habit/entry_editor_sheet.dart';
+import '../support/support_screen.dart';
 import '../widgets/habit_visuals.dart';
 import '../widgets/money_currency_prompt.dart';
 
@@ -584,7 +588,7 @@ void _showPostLogSnackBar(BuildContext context, UsageEntry entry, Habit habit) {
   final cost = entry.estimatedCostFor(habit);
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      duration: const Duration(seconds: 9),
+      duration: const Duration(seconds: 12),
       content: _PostLogSnackContent(entry: entry, habit: habit, cost: cost),
       action: SnackBarAction(
         label: 'Edit',
@@ -606,6 +610,8 @@ class _PostLogSnackContent extends ConsumerWidget {
   final Habit habit;
   final double? cost;
 
+  bool get _needsSupport => SanctuaryAttentionService.isHighNeedEntry(entry);
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final triggers = HabitLibrary.contextChipsFor(habit.category).take(4);
@@ -618,6 +624,49 @@ class _PostLogSnackContent extends ConsumerWidget {
               ? 'Logged ${habit.name}.'
               : 'Logged ${habit.name} · ${formatMoney(cost!)}.',
         ),
+        if (_needsSupport) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'That looked like a rougher moment. Want one gentle next step?',
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              ActionChip(
+                avatar: const Icon(Icons.spa_rounded, size: 16),
+                label: const Text('Open Sanctuary'),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SanctuaryScreen(),
+                    ),
+                  );
+                },
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.timer_outlined, size: 16),
+                label: const Text('Start 2 min pause'),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          const SanctuaryScreen(initialPauseSeconds: 120),
+                    ),
+                  );
+                },
+              ),
+              ActionChip(
+                avatar: const Icon(Icons.notifications_none_rounded, size: 16),
+                label: const Text('Remind me in 15 min'),
+                onPressed: () => _scheduleFollowUpReminder(context, ref),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 8),
         const Text('What triggered this?'),
         const SizedBox(height: 6),
@@ -643,6 +692,47 @@ class _PostLogSnackContent extends ConsumerWidget {
           ],
         ),
       ],
+    );
+  }
+
+  Future<void> _scheduleFollowUpReminder(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final state = ref
+        .read(appControllerProvider)
+        .maybeWhen(data: (state) => state, orElse: () => null);
+    if (state == null) return;
+
+    final notifications = ref.read(notificationServiceProvider);
+    final granted = await notifications.requestPermissions();
+    if (!context.mounted) return;
+    if (!granted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Notification permission is needed for follow-up reminders.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final delivery = await notifications.scheduleFollowUpReminder(
+      settings: state.settings,
+      delay: const Duration(minutes: 15),
+      trackerName: habit.name,
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          delivery == null
+              ? 'Could not schedule that reminder right now.'
+              : 'Reminder set for ${DateFormat('h:mm a').format(delivery)}.',
+        ),
+      ),
     );
   }
 }

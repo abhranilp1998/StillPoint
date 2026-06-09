@@ -7,16 +7,34 @@ import '../../services/analytics_service.dart';
 import '../../state/app_controller.dart';
 import '../widgets/adaptive_scaffold.dart';
 import '../widgets/habit_visuals.dart';
+import '../widgets/tracker_focus_bar.dart';
 
-class AnalyticsScreen extends ConsumerWidget {
+class AnalyticsScreen extends ConsumerStatefulWidget {
   const AnalyticsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AnalyticsScreen> createState() => _AnalyticsScreenState();
+}
+
+class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
+  String? _focusedHabitId;
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref
         .watch(appControllerProvider)
         .maybeWhen(data: (state) => state, orElse: () => null);
-    final analytics = ref.watch(analyticsProvider);
+    final validFocusId =
+        state != null &&
+            state.activeHabits.any((habit) => habit.id == _focusedHabitId)
+        ? _focusedHabitId
+        : null;
+    final analytics = state == null
+        ? ref.watch(analyticsProvider)
+        : AnalyticsService.buildSnapshot(
+            state,
+            focusHabitIds: validFocusId == null ? null : {validFocusId},
+          );
     return CustomScrollView(
       slivers: [
         const SliverAppBar(pinned: true, title: Text('Patterns')),
@@ -25,6 +43,16 @@ class AnalyticsScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (state != null && state.activeHabits.isNotEmpty) ...[
+                  TrackerFocusBar(
+                    habits: state.activeHabits,
+                    selectedHabitId: validFocusId,
+                    allLabel: 'All active',
+                    onSelected: (value) =>
+                        setState(() => _focusedHabitId = value),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 _SummaryGrid(analytics: analytics),
                 const SizedBox(height: 16),
                 AnalyticsHeatmap(analytics: analytics),
@@ -33,7 +61,8 @@ class AnalyticsScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 _TriggerPanel(analytics: analytics),
                 const SizedBox(height: 16),
-                if (state != null) _ReductionPlanner(state: state),
+                if (state != null)
+                  _ReductionPlanner(state: state, focusedHabitId: validFocusId),
                 const SizedBox(height: 120),
               ],
             ),
@@ -366,13 +395,20 @@ class _TriggerPanel extends StatelessWidget {
 }
 
 class _ReductionPlanner extends ConsumerWidget {
-  const _ReductionPlanner({required this.state});
+  const _ReductionPlanner({required this.state, required this.focusedHabitId});
 
   final AppState state;
+  final String? focusedHabitId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final habits = focusedHabitId == null
+        ? state.activeHabits.take(5).toList(growable: false)
+        : state.activeHabits
+              .where((habit) => habit.id == focusedHabitId)
+              .take(5)
+              .toList(growable: false);
     return CalmCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,14 +416,15 @@ class _ReductionPlanner extends ConsumerWidget {
           const SectionHeader(title: 'Reduction modes'),
           const SizedBox(height: 8),
           Text(
-            'Targets are flexible; progress history stays intact.',
+            focusedHabitId == null
+                ? 'Targets are flexible; progress history stays intact.'
+                : 'You are looking at one tracker, so its target stays in focus here too.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 8),
-          for (final habit in state.activeHabits.take(5))
-            _HabitGoalRow(habit: habit),
+          for (final habit in habits) _HabitGoalRow(habit: habit),
         ],
       ),
     );

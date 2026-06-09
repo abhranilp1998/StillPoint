@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/models.dart';
+import 'insight_engine.dart';
 
 class SupportResource {
   const SupportResource({
@@ -33,6 +34,24 @@ class RiskProfile {
 }
 
 class GuidanceService {
+  static const _genericPatternResources = [
+    SupportResource(
+      title: 'Commonly used drugs and effects',
+      source: 'NIDA',
+      url: 'https://nida.nih.gov/research-topics/commonly-used-drugs-charts',
+    ),
+    SupportResource(
+      title: 'Find help and treatment',
+      source: 'SAMHSA',
+      url: 'https://www.samhsa.gov/find-help',
+    ),
+    SupportResource(
+      title: 'Substance use treatment',
+      source: 'SAMHSA',
+      url: 'https://www.samhsa.gov/substance-use/treatment',
+    ),
+  ];
+
   static RiskProfile profileFor(HabitCategory category) {
     return switch (category) {
       HabitCategory.cigarettes => _nicotineProfile(
@@ -265,6 +284,37 @@ class GuidanceService {
     };
   }
 
+  static List<SupportResource> resourcesForInsight({
+    required BehaviorInsight insight,
+    required AppState state,
+  }) {
+    if (insight.type == InsightType.privacy) return const [];
+
+    final resources = <SupportResource>[];
+    final seenUrls = <String>{};
+
+    void addResources(Iterable<SupportResource> items) {
+      for (final item in items) {
+        if (seenUrls.add(item.url)) {
+          resources.add(item);
+        }
+        if (resources.length >= 3) return;
+      }
+    }
+
+    final matchedCategories = _categoriesForInsight(insight, state);
+    for (final category in matchedCategories) {
+      addResources(profileFor(category).resources);
+      if (resources.length >= 3) break;
+    }
+
+    if (resources.length < 3) {
+      addResources(_fallbackResourcesForInsight(insight));
+    }
+
+    return resources.take(3).toList(growable: false);
+  }
+
   static Uri searchUriFor({
     required Habit habit,
     required List<UsageEntry> entries,
@@ -319,6 +369,49 @@ class GuidanceService {
       harmReductionSearchUri(topic),
       mode: LaunchMode.externalApplication,
     );
+  }
+
+  static List<HabitCategory> _categoriesForInsight(
+    BehaviorInsight insight,
+    AppState state,
+  ) {
+    final habitsByName = {
+      for (final habit in state.activeHabits) habit.name.toLowerCase(): habit,
+    };
+    final categories = <HabitCategory>[];
+    final seen = <HabitCategory>{};
+
+    for (final noticed in insight.habitsNoticed) {
+      final habit = habitsByName[noticed.toLowerCase()];
+      if (habit == null) continue;
+      if (seen.add(habit.category)) {
+        categories.add(habit.category);
+      }
+    }
+
+    if (categories.isNotEmpty) return categories;
+
+    if (insight.kind == InsightKind.money) {
+      for (final habit in state.activeHabits.where(
+        (habit) => (habit.costPerUnit ?? 0) > 0,
+      )) {
+        if (seen.add(habit.category)) {
+          categories.add(habit.category);
+        }
+      }
+    }
+
+    return categories;
+  }
+
+  static List<SupportResource> _fallbackResourcesForInsight(
+    BehaviorInsight insight,
+  ) {
+    return switch (insight.type) {
+      InsightType.privacy => const [],
+      InsightType.gettingStarted => const [],
+      _ => _genericPatternResources,
+    };
   }
 
   static RiskProfile _nicotineProfile({required String title}) {
