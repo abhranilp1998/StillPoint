@@ -122,7 +122,7 @@ class TrackerTile extends StatelessWidget {
               DecoratedBox(
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: .14),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(7),
@@ -328,7 +328,7 @@ class MetricTile extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .42),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),

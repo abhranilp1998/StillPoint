@@ -344,7 +344,7 @@ class _MoneyMetricTile extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               color: scheme.tertiary.withValues(alpha: .13),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Padding(
               padding: const EdgeInsets.all(7),
@@ -976,7 +976,7 @@ class _InsightDetailBlock extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .4),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: theme.colorScheme.outlineVariant.withValues(alpha: .45),
         ),

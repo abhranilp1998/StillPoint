@@ -85,7 +85,7 @@ class _SlowModeHeader extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               color: accent.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Padding(
               padding: const EdgeInsets.all(8),
@@ -388,7 +388,7 @@ class _DelayButton extends StatelessWidget {
         backgroundColor: scheme.primaryContainer.withValues(alpha: .72),
         foregroundColor: scheme.onPrimaryContainer,
         minimumSize: const Size(92, 48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       onPressed: onPressed,
       child: Text(label),

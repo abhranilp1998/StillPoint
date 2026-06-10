@@ -338,7 +338,7 @@ class _CostReflectionPanel extends StatelessWidget {
               DecoratedBox(
                 decoration: BoxDecoration(
                   color: scheme.tertiary.withValues(alpha: .14),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(8),
@@ -514,7 +514,7 @@ class _RiskCard extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               color: theme.colorScheme.surface.withValues(alpha: .72),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Padding(
               padding: const EdgeInsets.all(12),

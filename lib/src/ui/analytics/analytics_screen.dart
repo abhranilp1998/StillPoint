@@ -173,7 +173,7 @@ class _AnalyticsHeatmapState extends State<AnalyticsHeatmap> {
             trailing: DropdownButton<HeatmapMode>(
               value: _mode,
               underline: const SizedBox.shrink(),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               items: const [
                 DropdownMenuItem(
                   value: HeatmapMode.usage,
@@ -463,7 +463,7 @@ class _HabitGoalRow extends ConsumerWidget {
           color: theme.colorScheme.surfaceContainerHighest.withValues(
             alpha: .34,
           ),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Padding(
           padding: const EdgeInsets.all(10),
@@ -486,7 +486,7 @@ class _HabitGoalRow extends ConsumerWidget {
                   DropdownButton<ReductionMode>(
                     value: habit.reductionMode,
                     underline: const SizedBox.shrink(),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                     items: [
                       for (final mode in ReductionMode.values)
                         DropdownMenuItem(value: mode, child: Text(mode.label)),

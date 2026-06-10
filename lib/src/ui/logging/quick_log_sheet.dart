@@ -513,7 +513,7 @@ class _LogCostPreview extends StatelessWidget {
             DecoratedBox(
               decoration: BoxDecoration(
                 color: scheme.tertiary.withValues(alpha: .14),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(7),
@@ -554,7 +554,7 @@ class _LoggingHint extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.tertiaryContainer.withValues(alpha: .24),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: theme.colorScheme.outlineVariant.withValues(alpha: .45),
         ),

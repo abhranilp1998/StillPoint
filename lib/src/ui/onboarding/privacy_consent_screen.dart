@@ -249,7 +249,7 @@ class _PrivacyWelcomeCard extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               color: scheme.primary.withValues(alpha: .14),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Padding(
               padding: const EdgeInsets.all(9),
