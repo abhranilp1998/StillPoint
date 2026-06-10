@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'analytics/analytics_screen.dart';
 import 'history/history_screen.dart';
@@ -125,7 +126,7 @@ class _AppShellState extends ConsumerState<AppShell>
               child: SlideTransition(
                 position:
                     Tween<Offset>(
-                      begin: const Offset(0, .015),
+                      begin: const Offset(0, .025),
                       end: Offset.zero,
                     ).animate(
                       CurvedAnimation(
@@ -273,7 +274,7 @@ class _EdgeNavigationBar extends StatelessWidget {
                         ),
                       ),
                       labelTextStyle: WidgetStateProperty.resolveWith(
-                        (states) => TextStyle(
+                        (states) => GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: states.contains(WidgetState.selected)
                               ? FontWeight.w900
