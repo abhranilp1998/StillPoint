@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../theme/app_theme.dart';
 
 class ScreenPadding extends StatelessWidget {
   const ScreenPadding({super.key, required this.child});
@@ -75,11 +76,11 @@ class _CalmCardState extends State<CalmCard> {
         ? Offset(0, _pressed ? -1.5 : -.75)
         : Offset.zero;
     final scale = !reduceMotion && _pressed
-        ? 1.004
-        : (_hovered && !reduceMotion ? 1.001 : 1.0);
+        ? 0.978
+        : (_hovered && !reduceMotion ? 0.995 : 1.0);
     final shadowAlpha = interactive
-        ? (_pressed ? .14 : (_hovered ? .12 : .06))
-        : .06;
+        ? (_pressed ? .16 : (_hovered ? .12 : .07))
+        : .07;
     final glowIntensity = widget.glowIntensity.clamp(0, 1).toDouble();
 
     final card = AnimatedContainer(
@@ -93,7 +94,7 @@ class _CalmCardState extends State<CalmCard> {
             ? widget.color ?? theme.colorScheme.surfaceContainerLow
             : null,
         gradient: widget.gradient,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppTheme.radius,
         border: Border.all(
           color:
               widget.borderColor ??
@@ -104,8 +105,9 @@ class _CalmCardState extends State<CalmCard> {
         boxShadow: [
           BoxShadow(
             color: theme.shadowColor.withValues(alpha: shadowAlpha),
-            blurRadius: active ? 22 : 14,
-            offset: Offset(0, active ? 10 : 6),
+            blurRadius: active ? 28 : 16,
+            offset: Offset(0, active ? 12 : 7),
+            spreadRadius: -1,
           ),
           if (glowIntensity > 0)
             BoxShadow(
@@ -315,7 +317,12 @@ class SectionHeader extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
         ),
         ?trailing,
       ],
