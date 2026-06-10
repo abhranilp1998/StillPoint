@@ -322,7 +322,7 @@ class _TrackerSection extends StatelessWidget {
                   crossAxisCount: crossAxisCount,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  mainAxisExtent: 116,
+                  mainAxisExtent: 120,
                 ),
                 itemBuilder: (context, index) {
                   if (footer != null && index == itemCount - 1) {

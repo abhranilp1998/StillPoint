@@ -577,7 +577,7 @@ class _TrackersSection extends StatelessWidget {
                 crossAxisCount: isWide ? 3 : 2,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
-                mainAxisExtent: 116,
+                mainAxisExtent: 120,
               ),
               itemBuilder: (context, index) {
                 if (index == visibleHabits.length) {
