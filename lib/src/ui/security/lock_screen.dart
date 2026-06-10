@@ -37,7 +37,11 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     super.initState();
     _loadRetryState();
     if (widget.settings.biometricLock) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _tryBiometric());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 350), () {
+          if (mounted) _tryBiometric();
+        });
+      });
     }
   }
 
