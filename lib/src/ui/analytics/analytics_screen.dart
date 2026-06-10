@@ -53,16 +53,33 @@ class _AnalyticsScreenState extends ConsumerState<AnalyticsScreen> {
                   ),
                   const SizedBox(height: 16),
                 ],
-                _SummaryGrid(analytics: analytics),
+                MotionReveal(
+                  child: _SummaryGrid(analytics: analytics),
+                ),
                 const SizedBox(height: 16),
-                AnalyticsHeatmap(analytics: analytics),
+                MotionReveal(
+                  delay: const Duration(milliseconds: 60),
+                  child: AnalyticsHeatmap(analytics: analytics),
+                ),
                 const SizedBox(height: 16),
-                _HourlyChart(analytics: analytics),
+                MotionReveal(
+                  delay: const Duration(milliseconds: 120),
+                  child: _HourlyChart(analytics: analytics),
+                ),
                 const SizedBox(height: 16),
-                _TriggerPanel(analytics: analytics),
+                MotionReveal(
+                  delay: const Duration(milliseconds: 180),
+                  child: _TriggerPanel(analytics: analytics),
+                ),
                 const SizedBox(height: 16),
                 if (state != null)
-                  _ReductionPlanner(state: state, focusedHabitId: validFocusId),
+                  MotionReveal(
+                    delay: const Duration(milliseconds: 240),
+                    child: _ReductionPlanner(
+                      state: state,
+                      focusedHabitId: validFocusId,
+                    ),
+                  ),
                 const SizedBox(height: 120),
               ],
             ),
