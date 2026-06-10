@@ -653,7 +653,7 @@ class _CostChip extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: scheme.tertiaryContainer.withValues(alpha: .58),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: scheme.tertiary.withValues(alpha: .16)),
         ),
         child: Padding(

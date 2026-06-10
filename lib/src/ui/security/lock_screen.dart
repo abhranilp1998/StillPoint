@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:local_auth_android/local_auth_android.dart';
 
 import '../../core/models.dart';
 import '../../services/security_service.dart';
@@ -37,7 +38,11 @@ class _LockScreenState extends ConsumerState<LockScreen> {
     super.initState();
     _loadRetryState();
     if (widget.settings.biometricLock) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _tryBiometric());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 350), () {
+          if (mounted) _tryBiometric();
+        });
+      });
     }
   }
 
@@ -140,17 +145,52 @@ class _LockScreenState extends ConsumerState<LockScreen> {
 
   Future<void> _tryBiometric() async {
     try {
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isSupported = await _localAuth.isDeviceSupported();
+      final available = await _localAuth.getAvailableBiometrics();
+
+      debugPrint(
+        '[local_auth] canCheckBiometrics=$canCheck '
+        'isDeviceSupported=$isSupported '
+        'available=$available',
+      );
+
+      if (!isSupported) {
+        if (mounted) {
+          setState(
+            () => _message = 'No screen lock set up on this device.',
+          );
+        }
+        return;
+      }
+
+      if (canCheck && available.isEmpty) {
+        if (mounted) {
+          setState(
+            () => _message =
+                'No biometrics enrolled. Add a fingerprint in device settings.',
+          );
+        }
+        return;
+      }
+
       final didAuthenticate = await _localAuth.authenticate(
         localizedReason: 'Unlock your private tracker',
-        biometricOnly: false,
+        authMessages: const [
+          AndroidAuthMessages(
+            signInTitle: 'Stillpoint — Private space',
+            cancelButton: 'Use PIN instead',
+          ),
+        ],
       );
       if (didAuthenticate) {
         await ref.read(securityServiceProvider).clearFailedPinAttempts();
         widget.onUnlocked();
       }
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('[local_auth] Error: $e\n$st');
       if (mounted) {
-        setState(() => _message = 'Biometric unlock is unavailable.');
+        setState(() => _message = 'Biometric error: $e');
       }
     }
   }

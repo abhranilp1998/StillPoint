@@ -10,6 +10,7 @@ import '../../core/quantity_math.dart';
 import '../../services/notification_service.dart';
 import '../../services/sanctuary_attention_service.dart';
 import '../../state/app_controller.dart';
+import '../../theme/app_theme.dart';
 import '../habit/entry_editor_sheet.dart';
 import '../support/support_screen.dart';
 import '../widgets/habit_visuals.dart';
@@ -24,7 +25,7 @@ Future<void> showQuickLogSheet(BuildContext context, {Habit? initialHabit}) {
     showDragHandle: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      borderRadius: AppTheme.sheetRadius,
     ),
     builder: (_) =>
         QuickLogSheet(initialHabit: initialHabit, launcherContext: context),
@@ -39,7 +40,7 @@ Future<void> showAddHabitSheet(BuildContext context) {
     showDragHandle: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      borderRadius: AppTheme.sheetRadius,
     ),
     builder: (_) => const AddHabitSheet(),
   );
@@ -512,7 +513,7 @@ class _LogCostPreview extends StatelessWidget {
             DecoratedBox(
               decoration: BoxDecoration(
                 color: scheme.tertiary.withValues(alpha: .14),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(7),
@@ -553,7 +554,7 @@ class _LoggingHint extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.tertiaryContainer.withValues(alpha: .24),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: theme.colorScheme.outlineVariant.withValues(alpha: .45),
         ),

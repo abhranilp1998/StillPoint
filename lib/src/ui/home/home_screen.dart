@@ -344,7 +344,7 @@ class _MoneyMetricTile extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               color: scheme.tertiary.withValues(alpha: .13),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Padding(
               padding: const EdgeInsets.all(7),
@@ -577,7 +577,7 @@ class _TrackersSection extends StatelessWidget {
                 crossAxisCount: isWide ? 3 : 2,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
-                mainAxisExtent: 116,
+                mainAxisExtent: 120,
               ),
               itemBuilder: (context, index) {
                 if (index == visibleHabits.length) {
@@ -976,7 +976,7 @@ class _InsightDetailBlock extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .4),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: theme.colorScheme.outlineVariant.withValues(alpha: .45),
         ),
